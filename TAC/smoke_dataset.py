@@ -1,4 +1,3 @@
-# TAC/smoke_dataset.py
 from torch.utils.data import DataLoader
 from TAC.datasets import build_index, ForceWindowDataset
 
