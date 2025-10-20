@@ -1,0 +1,1 @@
+The dataset is organized into user directories u1–u7. Within each user, there are subfolders a–g. Each subfolder contains a force.csv file with the following columns: time, force_x, force_y, force_z, and keystate.
