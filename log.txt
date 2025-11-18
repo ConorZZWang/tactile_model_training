@@ -27,3 +27,46 @@ task 4: 0.821
 task 5: 0.771
 task 6: 0.818
 OVERALL mean acc: 0.789
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.bench_user_per_task_imgcnn --window_len 512 --stride 256 --use_ema --nperseg 64 --noverlap 48 --img_h 80 --img_w 40 --channels 3axis --cmvn --backbone small --epochs 40 --batch 128 --lr 5e-4 --wd 1e-2
+Images: (54500, 3, 80, 40) | users: Counter({np.int64(1): 10614, np.int64(2): 9573, np.int64(4): 9355, np.int64(5): 9042, np.int64(0): 6609, np.int64(6): 4711, np.int64(3): 4596}) | tasks: Counter({np.int64(0): 10653, np.int64(1): 9420, np.int64(3): 8237, np.int64(5): 7652, np.int64(4): 7150, np.int64(2): 5810, np.int64(6): 5578})
+[INFO] users=7 tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] TEST acc 0.477
+[task 1] TEST acc 0.391
+[task 2] TEST acc 0.482
+[task 3] TEST acc 0.464
+[task 4] TEST acc 0.646
+[task 5] TEST acc 0.435
+[task 6] TEST acc 0.598
+
+=== SUMMARY (img spectrogram) ===
+task 0: 0.477
+task 1: 0.391
+task 2: 0.482
+task 3: 0.464
+task 4: 0.646
+task 5: 0.435
+task 6: 0.598
+OVERALL mean acc: 0.499
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.bench_user_per_task_imgcnn --window_len 512 --stride 256 --use_ema --nperseg 32 --noverlap 24 --img_h 224 --img_w 224 --backbone resnet18 --epochs 60 --batch 128 --lr 3e-4 --wd 1e-2
+Images: (54500, 3, 224, 224) | users: Counter({np.int64(1): 10614, np.int64(2): 9573, np.int64(4): 9355, np.int64(5): 9042, np.int64(0): 6609, np.int64(6): 4711, np.int64(3): 4596}) | tasks: Counter({np.int64(0): 10653, np.int64(1): 9420, np.int64(3): 8237, np.int64(5): 7652, np.int64(4): 7150, np.int64(2): 5810, np.int64(6): 5578})
+[INFO] users=7 tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] TEST acc 0.624
+[task 1] TEST acc 0.591
+[task 2] TEST acc 0.662
+[task 3] TEST acc 0.722
+[task 4] TEST acc 0.691
+[task 5] TEST acc 0.665
+[task 6] TEST acc 0.776
+
+=== SUMMARY (img spectrogram) ===
+task 0: 0.624
+task 1: 0.591
+task 2: 0.662
+task 3: 0.722
+task 4: 0.691
+task 5: 0.665
+task 6: 0.776
+OVERALL mean acc: 0.676
+[saved] bench_user_per_task_imgcnn.csv
