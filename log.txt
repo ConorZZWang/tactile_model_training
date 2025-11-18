@@ -1,0 +1,29 @@
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.train_user_transformer_features --use_ema --window_norm --seq_len 768 --stride 768 --per_user_train 100 --per_user_test 20 --epochs 100 --batch 16 --lr 1e-4 --d_model 256 --nhead 8 --num_layers 3 --dim_ff 1024 --dropout 0.2 Feature windows: (18169, 13, 768) | users: Counter({np.int64(1): 3538, np.int64(2): 3191, np.int64(4): 3119, np.int64(5): 3016, np.int64(0): 2203, np.int64(6): 1570, np.int64(3): 1532}) | tasks: Counter({np.int64(0): 3551, np.int64(1): 3141, np.int64(3): 2746, np.int64(5): 2552, np.int64(4): 2383, np.int64(2): 1937, np.int64(6): 1859}) [INFO] seq_len=768, stride=768, users=7, tasks=[0, 1, 2, 3, 4, 5, 6] [task 0] train 700 test 140 [task 0] TEST acc 0.650 [task 1] train 700 test 140 [task 1] TEST acc 0.714 [task 2] train 700 test 140 [task 2] TEST acc 0.807 [task 3] train 700 test 140 [task 3] TEST acc 0.743 [task 4] train 700 test 140 [task 4] TEST acc 0.736 [task 5] train 700 test 140 [task 5] TEST acc 0.771 [task 6] train 687 test 121 [task 6] TEST acc 0.793 === SUMMARY (paper Transformer, per-timestep FEATURES, per-task USER ID) === task 0: 0.650 task 1: 0.714 task 2: 0.807 task 3: 0.743 task 4: 0.736 task 5: 0.771 task 6: 0.793 OVERALL mean acc: 0.745
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.train_user_transformer_features --use_ema --window_norm --seq_len 1024 --stride 1024 --per_user_train 100 --per_user_test 20 --epochs 100 --batch 16 --lr 1e-4 --d_model 256 --nhead 8 --num_layers 3 --dim_ff 1024 --dropout 0.2
+Feature windows: (13620, 13, 1024) | users: Counter({np.int64(1): 2653, np.int64(2): 2393, np.int64(4): 2337, np.int64(5): 2259, np.int64(0): 1652, np.int64(6): 1177, np.int64(3): 1149}) | tasks: Counter({np.int64(0): 2663, np.int64(1): 2354, np.int64(3): 2059, np.int64(5): 1912, np.int64(4): 1787, np.int64(2): 1451, np.int64(6): 1394})
+[INFO] seq_len=1024, stride=1024, users=7, tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] train 700  test 140
+[task 0] TEST acc 0.693
+[task 1] train 700  test 140
+[task 1] TEST acc 0.793
+[task 2] train 700  test 124
+[task 2] TEST acc 0.806
+[task 3] train 700  test 140
+[task 3] TEST acc 0.821
+[task 4] train 700  test 140
+[task 4] TEST acc 0.821
+[task 5] train 700  test 140
+[task 5] TEST acc 0.771
+[task 6] train 665  test 121
+[task 6] TEST acc 0.818
+
+=== SUMMARY (paper Transformer, per-timestep FEATURES, per-task USER ID) ===
+task 0: 0.693
+task 1: 0.793
+task 2: 0.806
+task 3: 0.821
+task 4: 0.821
+task 5: 0.771
+task 6: 0.818
+OVERALL mean acc: 0.789
