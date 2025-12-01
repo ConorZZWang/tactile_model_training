@@ -252,11 +252,16 @@ def main():
 
     # Build one image per CSV
     X, yu, yt = build_images_per_csv(
-        fs=args.fs, use_ema=args.use_ema, channels=args.channels,
-        nperseg=args.nperseg, noverlap=args.noverlap,
-        img_h=args.img_h, img_w=args.img_w, cmvn_flag=args.cmvn,
-        chunks=args.chunks, chunk_overlap=args.chunk_overlap
+    fs=args.fs, use_ema=args.use_ema, channels=args.channels,
+    nperseg=args.nperseg, noverlap=args.noverlap,
+    img_h=args.img_h, img_w=args.img_w, cmvn_flag=args.cmvn,
+    chunks=args.chunks, chunk_overlap=args.chunk_overlap   # <-- pass cropping params
     )
+
+    n_users = len(np.unique(yu))
+    tasks   = sorted(np.unique(yt).tolist())                   # <-- define tasks
+    print(f"[INFO] users={n_users} tasks={tasks}")
+    print(f"Images: {X.shape} | users: {Counter(yu)} | tasks: {Counter(yt)}")  # cleaner print
 
     # choose model factory
     def make_model(in_ch):

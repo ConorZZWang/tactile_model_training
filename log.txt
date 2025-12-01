@@ -70,3 +70,86 @@ task 5: 0.665
 task 6: 0.776
 OVERALL mean acc: 0.676
 [saved] bench_user_per_task_imgcnn.csv
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.train_user_transformer_features --use_ema --window_norm --seq_len 256 --per_user_train 400 --per_user_test 100 --epochs 80 --batch 64 --lr 3e-4 --weight_decay 1e-2 --d_model 256 --nhead 8 --num_layers 3 --dim_ff 512 --dropout 0.2
+Feature windows: (109079, 16, 256) | users: Counter({np.int64(1): 21237, np.int64(2): 19159, np.int64(4): 18723, np.int64(5): 18095, np.int64(0): 13229, np.int64(6): 9433, np.int64(3): 9203}) | tasks: Counter({np.int64(0): 21317, np.int64(1): 18851, np.int64(3): 16484, np.int64(5): 15314, np.int64(4): 14313, np.int64(2): 11631, np.int64(6): 11169})
+[INFO] seq_len=256, stride=128, users=7, tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] train 2800  test 700
+[task 0] TEST acc 0.590
+[task 1] train 2800  test 700
+[task 1] TEST acc 0.659
+[task 2] train 2800  test 700
+[task 2] TEST acc 0.717
+[task 3] train 2800  test 700
+[task 3] TEST acc 0.664
+[task 4] train 2800  test 700
+[task 4] TEST acc 0.767
+[task 5] train 2800  test 700
+[task 5] TEST acc 0.711
+[task 6] train 2800  test 700
+[task 6] TEST acc 0.784
+
+=== SUMMARY (paper Transformer, per-timestep FEATURES, per-task USER ID) ===
+task 0: 0.590
+task 1: 0.659
+task 2: 0.717
+task 3: 0.664
+task 4: 0.767
+task 5: 0.711
+task 6: 0.784
+OVERALL mean acc: 0.699
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.train_user_transformer_features_paper --seq_len 512 --per_user_train 100 --per_user_test 20 --slices_per_csv 120 --slice_frac 0.6 --epochs 100 --batch 16 --lr 1e-4 --d_model 256 --nhead 16 --num_layers 2 --dim_ff 256 --dropout 0.1
+Sequences: (5880, 26, 512) | users: Counter({np.int64(0): 840, np.int64(1): 840, np.int64(2): 840, np.int64(3): 840, np.int64(4): 840, np.int64(5): 840, np.int64(6): 840}) | tasks: Counter({np.int64(0): 840, np.int64(1): 840, np.int64(2): 840, np.int64(3): 840, np.int64(4): 840, np.int64(5): 840, np.int64(6): 840})
+[INFO] seq_len=512, users=7, tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] train 700  test 140
+[task 0] TEST acc 0.971
+[task 1] train 700  test 140
+[task 1] TEST acc 0.971
+[task 2] train 700  test 140
+[task 2] TEST acc 0.971
+[task 3] train 700  test 140
+[task 3] TEST acc 0.986
+[task 4] train 700  test 140
+[task 4] TEST acc 1.000
+[task 5] train 700  test 140
+[task 5] TEST acc 0.986
+[task 6] train 700  test 140
+[task 6] TEST acc 0.986
+
+=== SUMMARY (paper Transformer, per-CSV CROPS, two-stream FEATURES) ===
+task 0: 0.971
+task 1: 0.971
+task 2: 0.971
+task 3: 0.986
+task 4: 1.000
+task 5: 0.986
+task 6: 0.986
+OVERALL mean acc: 0.982
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.train_user_transformer_features_paper --seq_len 512 --per_user_train 100 --per_user_test 20 --slices_per_csv 120 --slice_frac 0.6 --epochs 100 --batch 16 --lr 1e-4 --d_model 256 --nhead 16 --num_layers 2 --dim_ff 256 --dropout 0.1
+Sequences: (5880, 26, 512) | users: Counter({np.int64(0): 840, np.int64(1): 840, np.int64(2): 840, np.int64(3): 840, np.int64(4): 840, np.int64(5): 840, np.int64(6): 840}) | tasks: Counter({np.int64(0): 840, np.int64(1): 840, np.int64(2): 840, np.int64(3): 840, np.int64(4): 840, np.int64(5): 840, np.int64(6): 840})
+[INFO] seq_len=512, users=7, tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] train 700  test 140
+[task 0] TEST acc 0.971
+[task 1] train 700  test 140
+[task 1] TEST acc 0.971
+[task 2] train 700  test 140
+[task 2] TEST acc 0.971
+[task 3] train 700  test 140
+[task 3] TEST acc 0.986
+[task 4] train 700  test 140
+[task 4] TEST acc 0.993
+[task 5] train 700  test 140
+[task 5] TEST acc 0.979
+[task 6] train 700  test 140
+[task 6] TEST acc 0.986
+
+=== SUMMARY (paper Transformer, per-CSV CROPS, two-stream FEATURES) ===
+task 0: 0.971
+task 1: 0.971
+task 2: 0.971
+task 3: 0.986
+task 4: 0.993
+task 5: 0.979
+task 6: 0.986
+OVERALL mean acc: 0.980

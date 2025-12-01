@@ -14,6 +14,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import math
 
 from TAC.load_all import iter_force_files, DATA_ROOT
 
@@ -85,7 +86,7 @@ def make_features(Fx: np.ndarray, Fy: np.ndarray, Fz: np.ndarray, use_ema: bool)
     dF_norm = np.linalg.norm(dF, axis=1, keepdims=True)  # (T,1)
 
     # Concatenate features: (T, 13)
-    feat = np.concatenate([v, v_norm, a, a_norm, j, j_norm, dF_norm], axis=1).astype(np.float32)
+    feat = np.concatenate([F, v, v_norm, a, a_norm, j, j_norm, dF_norm],axis=1).astype(np.float32)
     return feat
 
 def load_feature_windows(seq_len: int, stride: int, use_ema: bool, window_norm: bool
@@ -165,13 +166,35 @@ def sample_per_user_task_indices(y_user: np.ndarray, y_task: np.ndarray,
         return np.array([], dtype=int), np.array([], dtype=int)
     return np.concatenate(tr_idx), np.concatenate(te_idx)
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model: int, max_len: int = 4096):
+        super().__init__()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float32).unsqueeze(1)
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2, dtype=torch.float32)
+            * (-math.log(10000.0) / d_model)
+        )
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        # shape (1, max_len, d_model) so it broadcasts over batch
+        self.register_buffer("pe", pe.unsqueeze(0))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (B, L, D)
+        L = x.size(1)
+        return x + self.pe[:, :L, :]
+
+
 # -----------------------
 # Model (Transformer)
 # -----------------------
 class PaperTransformer(nn.Module):
-    def __init__(self, in_channels=13, d_model=512, nhead=16, num_layers=2, dim_ff=512, dropout=0.1, n_classes=7):
+    def __init__(self, in_channels=13, d_model=512, nhead=16,
+                 num_layers=2, dim_ff=512, dropout=0.1, n_classes=7):
         super().__init__()
         self.in_proj = nn.Conv1d(in_channels, d_model, kernel_size=1)
+        self.pos_enc = PositionalEncoding(d_model)
         enc_layer = nn.TransformerEncoderLayer(
             d_model=d_model, nhead=nhead, dim_feedforward=dim_ff,
             dropout=dropout, batch_first=True
@@ -179,16 +202,20 @@ class PaperTransformer(nn.Module):
         self.encoder = nn.TransformerEncoder(enc_layer, num_layers=num_layers)
         self.pre_ln = nn.LayerNorm(d_model)
         self.head = nn.Sequential(
-            nn.Linear(d_model, d_model), nn.ReLU(inplace=True), nn.Dropout(dropout),
+            nn.Linear(d_model, d_model),
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout),
             nn.Linear(d_model, n_classes)
         )
 
     def forward(self, x):           # x: (B, C, L)
         z = self.in_proj(x).transpose(1, 2)  # (B, L, D)
+        z = self.pos_enc(z)                  # add temporal info
         z = self.pre_ln(z)
         z = self.encoder(z)                  # (B, L, D)
         z = z.mean(dim=1)                    # (B, D)
         return self.head(z)
+
 
 # -----------------------
 # Train / eval one task
