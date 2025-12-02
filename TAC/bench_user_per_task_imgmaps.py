@@ -1,4 +1,3 @@
-# TAC/bench_user_per_task_imgmaps.py
 # Per-window image encodings (RP/GAF/Force2D/STFT) -> CNN for per-task USER identification.
 
 import os
@@ -13,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
+
 
 from PIL import Image
 from scipy.signal import stft, get_window

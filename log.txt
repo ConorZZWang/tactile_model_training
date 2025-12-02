@@ -153,3 +153,91 @@ task 4: 0.993
 task 5: 0.979
 task 6: 0.986
 OVERALL mean acc: 0.980
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.bench_user_per_task_imgmaps --image_mode force2d --force_bins 96 --force_clip 3.0 --window_len 512 --stride 256 --use_ema --window_norm --img_h 96 --img_w 96 --cmvn
+Images: (54500, 3, 96, 96) | users: Counter({np.int64(1): 10614, np.int64(2): 9573, np.int64(4): 9355, np.int64(5): 9042, np.int64(0): 6609, np.int64(6): 4711, np.int64(3): 4596}) | tasks: Counter({np.int64(0): 10653, np.int64(1): 9420, np.int64(3): 8237, np.int64(5): 7652, np.int64(4): 7150, np.int64(2): 5810, np.int64(6): 5578})
+[INFO] users=7 tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] TEST acc 0.468
+[task 1] TEST acc 0.515
+[task 2] TEST acc 0.458
+[task 3] TEST acc 0.545
+[task 4] TEST acc 0.480
+[task 5] TEST acc 0.498
+[task 6] TEST acc 0.629
+
+=== SUMMARY (image maps) ===
+task 0: 0.468
+task 1: 0.515
+task 2: 0.458
+task 3: 0.545
+task 4: 0.480
+task 5: 0.498
+task 6: 0.629
+OVERALL mean acc: 0.513
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.bench_user_per_task_imgmaps --image_mode rp --add_norm_chan --window_len 512 --stride 256 --use_ema --window_norm --img_h 128 --img_w 128 --cmvn --rp_sigma 0.1 --epochs 60 --batch 128 --lr 5e-4 --wd 1e-2
+Images: (54500, 4, 128, 128) | users: Counter({np.int64(1): 10614, np.int64(2): 9573, np.int64(4): 9355, np.int64(5): 9042, np.int64(0): 6609, np.int64(6): 4711, np.int64(3): 4596}) | tasks: Counter({np.int64(0): 10653, np.int64(1): 9420, np.int64(3): 8237, np.int64(5): 7652, np.int64(4): 7150, np.int64(2): 5810, np.int64(6): 5578})
+[INFO] users=7 tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] TEST acc 0.506
+[task 1] TEST acc 0.581
+[task 2] TEST acc 0.574
+[task 3] TEST acc 0.646
+[task 4] TEST acc 0.582
+[task 5] TEST acc 0.587
+[task 6] TEST acc 0.680
+
+=== SUMMARY (image maps) ===
+task 0: 0.506
+task 1: 0.581
+task 2: 0.574
+task 3: 0.646
+task 4: 0.582
+task 5: 0.587
+task 6: 0.680
+OVERALL mean acc: 0.594
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training>  python -m TAC.bench_user_per_task_imgmaps --image_mode gaf --add_norm_chan --window_len 512 --stride 256 --use_ema --window_norm --img_h 128 --img_w 128 --cmvn
+Images: (54500, 4, 128, 128) | users: Counter({np.int64(1): 10614, np.int64(2): 9573, np.int64(4): 9355, np.int64(5): 9042, np.int64(0): 6609, np.int64(6): 4711, np.int64(3): 4596}) | tasks: Counter({np.int64(0): 10653, np.int64(1): 9420, np.int64(3): 8237, np.int64(5): 7652, np.int64(4): 7150, np.int64(2): 5810, np.int64(6): 5578})
+[INFO] users=7 tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] TEST acc 0.537
+[task 1] TEST acc 0.589
+[task 2] TEST acc 0.573
+[task 3] TEST acc 0.660
+[task 4] TEST acc 0.563
+[task 5] TEST acc 0.597
+[task 6] TEST acc 0.683
+
+=== SUMMARY (image maps) ===
+task 0: 0.537
+task 1: 0.589
+task 2: 0.573
+task 3: 0.660
+task 4: 0.563
+task 5: 0.597
+task 6: 0.683
+OVERALL mean acc: 0.600
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.bench_user_per_task_imgmaps --image_mode gaf --window_len 512 --stride 512 --use_ema --window_norm --cmvn --img_h 128 --img_w 128 --backbone resnet18 --epochs 80 --batch 128 --lr 3e-4 --wd 1e-2
+Images: (27263, 3, 128, 128) | users: Counter({np.int64(1): 5309, np.int64(2): 4789, np.int64(4): 4679, np.int64(5): 4522, np.int64(0): 3306, np.int64(6): 2358, np.int64(3): 2300}) | tasks: Counter({np.int64(0): 5329, np.int64(1): 4711, np.int64(3): 4120, np.int64(5): 3828, np.int64(4): 3577, np.int64(2): 2907, np.int64(6): 2791})
+[INFO] users=7 tasks=[0, 1, 2, 3, 4, 5, 6]
+C:\Users\Wang\Desktop\Uni\Y4\ML\.venv\Lib\site-packages\torchvision\models\_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
+  warnings.warn(
+C:\Users\Wang\Desktop\Uni\Y4\ML\.venv\Lib\site-packages\torchvision\models\_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
+  warnings.warn(msg)
+[task 0] TEST acc 0.431
+[task 1] TEST acc 0.443
+[task 2] TEST acc 0.395
+[task 3] TEST acc 0.432
+[task 4] TEST acc 0.421
+[task 5] TEST acc 0.423
+[task 6] TEST acc 0.510
+
+=== SUMMARY (image maps) ===
+task 0: 0.431
+task 1: 0.443
+task 2: 0.395
+task 3: 0.432
+task 4: 0.421
+task 5: 0.423
+task 6: 0.510
+OVERALL mean acc: 0.436
