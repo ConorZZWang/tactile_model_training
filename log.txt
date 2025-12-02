@@ -241,3 +241,45 @@ task 4: 0.421
 task 5: 0.423
 task 6: 0.510
 OVERALL mean acc: 0.436
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.bench_user_per_task_1d --window_len 512 --stride 256 --use_ema --window_norm --epochs 60 --batch 256 --lr 1e-3 --wd 1e-2
+1D windows: (54500, 3, 512) | users: Counter({np.int64(1): 10614, np.int64(2): 9573, np.int64(4): 9355, np.int64(5): 9042, np.int64(0): 6609, np.int64(6): 4711, np.int64(3): 4596}) | tasks: Counter({np.int64(0): 10653, np.int64(1): 9420, np.int64(3): 8237, np.int64(5): 7652, np.int64(4): 7150, np.int64(2): 5810, np.int64(6): 5578})
+[INFO] users=7 tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] TEST acc 0.579
+[task 1] TEST acc 0.611
+[task 2] TEST acc 0.609
+[task 3] TEST acc 0.718
+[task 4] TEST acc 0.677
+[task 5] TEST acc 0.642
+[task 6] TEST acc 0.690
+
+=== SUMMARY (1D CNN) ===
+task 0: 0.579
+task 1: 0.611
+task 2: 0.609
+task 3: 0.718
+task 4: 0.677
+task 5: 0.642
+task 6: 0.690
+OVERALL mean acc: 0.646
+
+(.venv) PS C:\Users\Wang\desktop\uni\y4\tactile_model_training> python -m TAC.bench_user_per_task_imgmaps --image_mode gaf --add_norm_chan --window_len 512 --stride 256 --use_ema --window_norm --img_h 128 --img_w 128 --cmvn --epochs 80 --batch 128 --lr 5e-4 --wd 5e-3 --backbone small
+Images: (54500, 4, 128, 128) | users: Counter({np.int64(1): 10614, np.int64(2): 9573, np.int64(4): 9355, np.int64(5): 9042, np.int64(0): 6609, np.int64(6): 4711, np.int64(3): 4596}) | tasks: Counter({np.int64(0): 10653, np.int64(1): 9420, np.int64(3): 8237, np.int64(5): 7652, np.int64(4): 7150, np.int64(2): 5810, np.int64(6): 5578})
+[INFO] users=7 tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] TEST acc 0.551
+[task 1] TEST acc 0.570
+[task 2] TEST acc 0.589
+[task 3] TEST acc 0.660
+[task 4] TEST acc 0.564
+[task 5] TEST acc 0.625
+[task 6] TEST acc 0.673
+
+=== SUMMARY (image maps) ===
+task 0: 0.551
+task 1: 0.570
+task 2: 0.589
+task 3: 0.660
+task 4: 0.564
+task 5: 0.625
+task 6: 0.673
+OVERALL mean acc: 0.605
