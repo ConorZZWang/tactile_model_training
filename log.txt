@@ -283,3 +283,120 @@ task 4: 0.564
 task 5: 0.625
 task 6: 0.673
 OVERALL mean acc: 0.605
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_stft1d --window_len 768 --stride 256 --use_ema --window_norm --cnn_base 192 --epochs 40 --batch_size 192 --stft_n_fft 128 --stft_hop 16 --stft_keep_bins 64
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(stft-channelized) ===
+[task 0] test_acc 0.525
+[task 1] test_acc 0.645
+[task 2] test_acc 0.673
+[task 3] test_acc 0.635
+[task 4] test_acc 0.715
+[task 5] test_acc 0.646
+[task 6] test_acc 0.821
+Overall TEST acc (stft1d): 0.650
+
+=== SUMMARY ===
+     model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_stft1d      0.65048   0.525281   0.645315   0.672945   0.634988   0.714585   0.646484   0.820696
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_stft1d `
+>> --window_len 768 --stride 256 --use_ema --window_norm `
+>> --cnn_base 192 --epochs 40 --batch_size 192 `
+>> --stft_n_fft 256 --stft_hop 32 --stft_keep_bins 96
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(stft-channelized) ===
+[task 0] test_acc 0.663
+[task 1] test_acc 0.677
+[task 2] test_acc 0.500
+[task 3] test_acc 0.666
+[task 4] test_acc 0.596
+[task 5] test_acc 0.698
+[task 6] test_acc 0.822
+Overall TEST acc (stft1d): 0.661
+
+=== SUMMARY ===
+     model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_stft1d     0.660905    0.66339   0.676548        0.5    0.66586   0.595953   0.697917    0.82248
+[saved] bench_user_per_task_stft1d.csv
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> 
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_stft1d `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --cnn_base 192 --epochs 40 --batch_size 192 `
+>>   --stft_n_fft 128 --stft_hop 8 --stft_keep_bins 64
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(stft-channelized) ===
+[task 0] test_acc 0.479
+[task 1] test_acc 0.653
+[task 2] test_acc 0.509
+[task 3] test_acc 0.583
+[task 4] test_acc 0.660
+[task 5] test_acc 0.670
+[task 6] test_acc 0.781
+Overall TEST acc (stft1d): 0.610
+
+=== SUMMARY ===
+     model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_stft1d     0.609511   0.478933   0.653256   0.508562    0.58293   0.660154   0.669922   0.781445
+[saved] bench_user_per_task_stft1d.csv
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> 
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training>  python -m TAC.bench_user_per_task_rawnn_stft1d `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --cnn_base 192 --epochs 40 --batch_size 192 `
+>>   --stft_n_fft 256 --stft_hop 32 --stft_keep_bins 64
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(stft-channelized) ===
+[task 0] test_acc 0.566
+[task 1] test_acc 0.677
+[task 2] test_acc 0.554
+[task 3] test_acc 0.742
+[task 4] test_acc 0.558
+[task 5] test_acc 0.706
+[task 6] test_acc 0.765
+Overall TEST acc (stft1d): 0.650
+
+=== SUMMARY ===
+     model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_stft1d     0.649566   0.566011   0.676548   0.553938   0.742131   0.558269    0.70638   0.765388
+[saved] bench_user_per_task_stft1d.csv
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_stft1d `
+>>   --window_len 768 --stride 256 --use_ema `
+>>   --cnn_base 192 --epochs 40 --batch_size 192 `
+>>   --stft_n_fft 256 --stft_hop 32 --stft_keep_bins 96
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(stft-channelized) ===
+[task 0] test_acc 0.583
+[task 1] test_acc 0.504
+[task 2] test_acc 0.615
+[task 3] test_acc 0.659
+[task 4] test_acc 0.615
+[task 5] test_acc 0.596
+[task 6] test_acc 0.585
+Overall TEST acc (stft1d): 0.591
+
+=== SUMMARY ===
+     model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_stft1d     0.590672   0.583333    0.50397   0.614726   0.659201   0.615492   0.596354   0.585192
+[saved] bench_user_per_task_stft1d.csv
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training>
+                                                                python -m TAC.bench_user_per_task_rawnn_stft1d --window_len 768 --stride 256 --use_ema --window_norm --cnn_base 192 --epochs 40 --batch_size 192 --stft_n_fft 128 --stft_hop 16 --stft_keep_bins 64                    
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(stft-channelized) ===
+[task 0] test_acc 0.684
+[task 1] test_acc 0.712
+[task 2] test_acc 0.721
+[task 3] test_acc 0.770
+[task 4] test_acc 0.720
+[task 5] test_acc 0.725
+[task 6] test_acc 0.831
+Overall TEST acc (stft1d): 0.731
+
+=== SUMMARY ===
+     model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_stft1d     0.731321   0.683989   0.712017    0.72089   0.769976   0.720167    0.72526   0.830508
