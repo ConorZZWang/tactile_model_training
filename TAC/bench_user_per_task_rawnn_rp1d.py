@@ -1,22 +1,24 @@
-# TAC/bench_user_per_task_rawnn_stft1d.py
-# Per-task USER authentication using a 1D-CNN on "image-like" STFT maps,
+# TAC/bench_user_per_task_rawnn_rp1d.py
+# Per-task USER authentication using a 1D-CNN on Recurrence Plots (RP),
 # channelized into (C, T) so we can reuse a 1D CNN pipeline.
 #
 # Representation:
-#   For each window (3, T):
-#     STFT per axis -> log-magnitude spectrogram (F, W)
-#     Channelize: concat axes along "channel" => (C = 3*F, T = W)
+#   For each axis, downsample the window to rp_size points (default 128),
+#   compute a recurrence matrix R[i,j] = exp(-|x_i - x_j| / (sigma+eps)).
+#   Channelize: stack rows as channels; concat axes => (C = 3*rp_size, T = rp_size).
+#
+# This is O(rp_size^2) per window; keep rp_size modest (128).
 #
 # Example:
-#   python -m TAC.bench_user_per_task_rawnn_stft1d \
-#     --window_len 768 --stride 256 --use_ema --window_norm \
-#     --cnn_base 192 --epochs 40 --batch_size 192 \
-#     --stft_n_fft 128 --stft_hop 16 --stft_keep_bins 64
+#   python -m TAC.bench_user_per_task_rawnn_rp1d \
+#     --window_len 512 --stride 512 --use_ema --window_norm \
+#     --cnn_base 192 --epochs 40 --batch_size 128 \
+#     --rp_size 128 --rp_sigma 0.2
 
 import os
 import argparse
 from collections import Counter
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -24,19 +26,13 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 
 from TAC.load_all import iter_force_files, DATA_ROOT
 
 torch.backends.cudnn.benchmark = True
 
 
-# ---------------------------
-# Helpers
-# ---------------------------
-
 def zwin(x: np.ndarray) -> np.ndarray:
-    """Per-window z-normalization: (N, C, T) -> (N, C, T)."""
     mu = x.mean(axis=2, keepdims=True)
     sd = x.std(axis=2, keepdims=True) + 1e-8
     return (x - mu) / sd
@@ -51,19 +47,7 @@ def ema_1d(series: np.ndarray, alpha: float) -> np.ndarray:
     return out
 
 
-def windows_from_index(
-    all_index,
-    window_len: int = 512,
-    stride: int = 512,
-    use_ema: bool = False,
-    ema_alpha: float = 0.001
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Return (X, y_user, y_task):
-      - X: (N, 3, T)
-      - y_user: (N,)
-      - y_task: (N,)
-    """
+def windows_from_index(all_index, window_len=512, stride=512, use_ema=False, ema_alpha=0.001):
     X_list, y_user_list, y_task_list = [], [], []
     user_map, task_map = {}, {}
 
@@ -106,7 +90,7 @@ def windows_from_index(
     if not X_list:
         raise RuntimeError("No windows created. Check data path and window params.")
 
-    X = np.stack(X_list, axis=0)  # (N, 3, T)
+    X = np.stack(X_list, axis=0)
     y_user = np.array(y_user_list, dtype=np.int64)
     y_task = np.array(y_task_list, dtype=np.int64)
 
@@ -114,14 +98,7 @@ def windows_from_index(
     return X, y_user, y_task
 
 
-def split_per_task_within_user(
-    y_user: np.ndarray,
-    y_task: np.ndarray,
-    task_id: int,
-    seed: int = 42,
-    ratios=(0.6, 0.2, 0.2)
-):
-    """For a task, split indices for each user into train/val/test by ratios."""
+def split_per_task_within_user(y_user, y_task, task_id, seed=42, ratios=(0.6, 0.2, 0.2)):
     rng = np.random.default_rng(seed)
     idx_task = np.where(y_task == task_id)[0]
     users = np.unique(y_user[idx_task])
@@ -137,9 +114,7 @@ def split_per_task_within_user(
         nva = int(ratios[1] * n)
         tr, va, te = iu[:ntr], iu[ntr:ntr + nva], iu[ntr + nva:]
         if len(tr) and len(va) and len(te):
-            tr_all.append(tr)
-            va_all.append(va)
-            te_all.append(te)
+            tr_all.append(tr); va_all.append(va); te_all.append(te)
 
     if not tr_all:
         return np.array([], dtype=int), np.array([], dtype=int), np.array([], dtype=int)
@@ -147,72 +122,51 @@ def split_per_task_within_user(
     return np.concatenate(tr_all), np.concatenate(va_all), np.concatenate(te_all)
 
 
-# ---------------------------
-# STFT "image" -> 1D-CNN tensor (N, C, T)
-# ---------------------------
+def _resample_1d(x: np.ndarray, n: int) -> np.ndarray:
+    """Linear resample to length n."""
+    t_old = np.linspace(0.0, 1.0, num=len(x), dtype=np.float32)
+    t_new = np.linspace(0.0, 1.0, num=n, dtype=np.float32)
+    return np.interp(t_new, t_old, x).astype(np.float32, copy=False)
 
-@torch.no_grad()
-def stft_channelize(
+
+def _minmax_unit(x: np.ndarray) -> np.ndarray:
+    mn = float(x.min()); mx = float(x.max())
+    if mx - mn < 1e-8:
+        return np.zeros_like(x, dtype=np.float32)
+    return ((x - mn) / (mx - mn)).astype(np.float32, copy=False)
+
+
+def rp_channelize(
     X: np.ndarray,
-    n_fft: int = 128,
-    hop: int = 16,
-    keep_bins: int = 64,
-    log_eps: float = 1e-6,
-    per_bin_norm: bool = True,
-    stft_delta: bool = False,
+    rp_size: int = 128,
+    sigma: float = 0.2,
+    eps: float = 1e-8
 ) -> np.ndarray:
     """
-    X: (N, 3, T) float32
-    Returns:
-      - if stft_delta=False: (N, 3*kb, W)
-      - if stft_delta=True : (N, 3*2*kb, W)  (mag + delta-mag)
+    X: (N, 3, T)
+    Return: (N, 3*rp_size, rp_size)
     """
-    assert X.ndim == 3 and X.shape[1] == 3
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    N, C, T = X.shape
+    out = np.empty((N, 3 * rp_size, rp_size), dtype=np.float32)
 
-    xt = torch.tensor(X, dtype=torch.float32, device=device)  # (N,3,T)
-    N, C, T = xt.shape
+    for i in range(N):
+        chans = []
+        for c in range(3):
+            x = _resample_1d(X[i, c], rp_size)
+            x = _minmax_unit(x)  # stable scaling per window
+            # distance matrix |x_i - x_j|
+            d = np.abs(x[:, None] - x[None, :]).astype(np.float32, copy=False)
+            # soft recurrence
+            R = np.exp(-d / (sigma + eps)).astype(np.float32, copy=False)  # (rp_size, rp_size)
+            chans.append(R)
+        M = np.concatenate(chans, axis=0)  # (3*rp_size, rp_size)
+        out[i] = M
 
-    xc = xt.reshape(N * C, T)
-    window = torch.hann_window(n_fft, device=device)
+    return out
 
-    spec = torch.stft(
-        xc, n_fft=n_fft, hop_length=hop, win_length=n_fft,
-        window=window, center=True, return_complex=True
-    )
-    mag = torch.abs(spec)                       # (N*C, F, W)
-    mag = torch.log(mag + log_eps)              # log-magnitude
-
-    # keep low freq bins FIRST
-    kb = min(keep_bins, mag.shape[1])
-    mag = mag[:, :kb, :]                        # (N*C, kb, W)
-
-    # normalize each frequency bin across time (per sample)
-    if per_bin_norm:
-        m = mag.mean(dim=2, keepdim=True)
-        s = mag.std(dim=2, keepdim=True) + 1e-6
-        mag = (mag - m) / s
-
-    # optional delta channels over time frames
-    if stft_delta:
-        d = mag[:, :, 1:] - mag[:, :, :-1]                 # (N*C, kb, W-1)
-        d = torch.cat([d[:, :, :1], d], dim=2)             # pad to (N*C, kb, W)
-        mag = torch.cat([mag, d], dim=1)                   # (N*C, 2*kb, W)
-
-    mag = mag.reshape(N, -1, mag.shape[2])                 # (N, C*kb(or 2kb), W)
-    return mag.detach().cpu().numpy().astype(np.float32, copy=False)
-
-# ---------------------------
-# Models
-# ---------------------------
 
 class CNN1D(nn.Module):
-    """
-    1D CNN that works for both:
-      - raw: C=3
-      - channelized maps: C can be large (e.g., 192)
-    Uses a 1x1 stem to compress arbitrary input channels to `base`.
-    """
+    """1D CNN with 1x1 channel stem (important for large C like 384)."""
     def __init__(self, in_channels: int, n_classes: int, base: int = 128, dropout: float = 0.2):
         super().__init__()
         self.stem = nn.Sequential(
@@ -246,15 +200,11 @@ class CNN1D(nn.Module):
             nn.Linear(base * 2, n_classes),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x):
         x = self.stem(x)
         z = self.net(x)
         return self.head(z)
 
-
-# ---------------------------
-# Training helpers
-# ---------------------------
 
 def train_one_model(
     Xtr: np.ndarray, ytr: np.ndarray,
@@ -268,7 +218,7 @@ def train_one_model(
     patience: int,
     cnn_base: int,
     class_weight: Optional[np.ndarray] = None
-) -> nn.Module:
+):
     torch.manual_seed(seed)
     np.random.seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -290,13 +240,12 @@ def train_one_model(
     best_state = None
     wait = 0
 
-    for ep in range(1, max_epochs + 1):
+    for _ep in range(1, max_epochs + 1):
         model.train()
         for xb, yb in dl_tr:
             xb = xb.to(device); yb = yb.to(device)
             opt.zero_grad(set_to_none=True)
-            logits = model(xb)
-            loss = crit(logits, yb)
+            loss = crit(model(xb), yb)
             loss.backward()
             opt.step()
 
@@ -307,8 +256,7 @@ def train_one_model(
             for xb, yb in dl_va:
                 xb = xb.to(device); yb = yb.to(device)
                 pr = model(xb).argmax(1)
-                correct += int((pr == yb).sum().item())
-                n += len(xb)
+                correct += int((pr == yb).sum().item()); n += len(xb)
             va_acc = correct / max(1, n)
 
         if va_acc > best_va:
@@ -326,51 +274,45 @@ def train_one_model(
     return model
 
 
-
 @torch.no_grad()
-def predict_model(model: nn.Module, X: np.ndarray, bs: int = 256) -> np.ndarray:
+def predict_model(model: nn.Module, X: np.ndarray, bs: int):
     device = next(model.parameters()).device
     dl = torch.utils.data.DataLoader(torch.tensor(X, dtype=torch.float32), batch_size=bs, shuffle=False)
     out = []
     for xb in dl:
         xb = xb.to(device)
-        logits = model(xb)
-        out.append(logits.argmax(1).detach().cpu().numpy())
+        out.append(model(xb).argmax(1).detach().cpu().numpy())
     return np.concatenate(out, axis=0)
 
 
-# ---------------------------
-# Main
-# ---------------------------
-
 def main():
-    ap = argparse.ArgumentParser("Per-task USER authentication with 1D-CNN on STFT-channelized maps")
-    ap.add_argument("--window_len", type=int, default=768)
-    ap.add_argument("--stride", type=int, default=256)
+    ap = argparse.ArgumentParser("Per-task USER authentication with 1D-CNN on RP-channelized maps")
+    ap.add_argument("--window_len", type=int, default=512)
+    ap.add_argument("--stride", type=int, default=512)
     ap.add_argument("--use_ema", action="store_true")
     ap.add_argument("--ema_alpha", type=float, default=0.001)
     ap.add_argument("--window_norm", action="store_true")
+    ap.add_argument("--class_weight", action="store_true")
+
+    ap.add_argument("--rp_size", type=int, default=128)
+    ap.add_argument("--rp_sigma", type=float, default=0.2)
+
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--epochs", type=int, default=40)
-    ap.add_argument("--batch_size", type=int, default=192)
+    ap.add_argument("--batch_size", type=int, default=128)
     ap.add_argument("--lr", type=float, default=8e-4)
     ap.add_argument("--wd", type=float, default=1e-3)
     ap.add_argument("--patience", type=int, default=6)
     ap.add_argument("--cnn_base", type=int, default=192)
-    ap.add_argument("--stft_n_fft", type=int, default=128)
-    ap.add_argument("--stft_hop", type=int, default=16)
-    ap.add_argument("--stft_keep_bins", type=int, default=64)
-    ap.add_argument("--class_weight", action="store_true",
-                help="use class-weighted CE from inverse-frequency (computed per task train split)")
-    ap.add_argument("--stft_delta", action="store_true",
-                help="append delta STFT channels (temporal derivative over frames)")
     ap.add_argument("--out_csv", default="bench_user_per_task_stft1d.csv")
+    ap.add_argument("--class_weight", action="store_true", help="use class-weighted CE from inverse-frequency (computed per task train split)")
+    ap.add_argument("--stft_delta", action="store_true", help="append delta STFT channels (temporal derivative over frames)")
+    ap.add_argument("--out_csv", default="bench_user_per_task_rp1d.csv")
     args = ap.parse_args()
 
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
 
-    # Build raw windows
     all_index = tuple(iter_force_files(DATA_ROOT))
     X, y_user, y_task = windows_from_index(
         all_index,
@@ -384,7 +326,7 @@ def main():
     tasks = sorted(np.unique(y_task).tolist())
 
     results = []
-    print("\n=== MODEL: cnn(stft-channelized) ===")
+    print("\n=== MODEL: cnn(rp-channelized) ===")
     per_task_acc = {}
     all_te_true, all_te_pred = [], []
 
@@ -402,33 +344,10 @@ def main():
             Xva_raw = zwin(Xva_raw)
             Xte_raw = zwin(Xte_raw)
 
-        # STFT channelize -> (N, C, T')
-        Xtr = stft_channelize(
-            Xtr_raw,
-            n_fft=args.stft_n_fft,
-            hop=args.stft_hop,
-            keep_bins=args.stft_keep_bins,
-            per_bin_norm=True,
-            stft_delta=args.stft_delta,
-        )
-        Xva = stft_channelize(
-            Xva_raw,
-            n_fft=args.stft_n_fft,
-            hop=args.stft_hop,
-            keep_bins=args.stft_keep_bins,
-            per_bin_norm=True,
-            stft_delta=args.stft_delta,
-        )
-        Xte = stft_channelize(
-            Xte_raw,
-            n_fft=args.stft_n_fft,
-            hop=args.stft_hop,
-            keep_bins=args.stft_keep_bins,
-            per_bin_norm=True,
-            stft_delta=args.stft_delta,
-        )
+        Xtr = rp_channelize(Xtr_raw, rp_size=args.rp_size, sigma=args.rp_sigma)
+        Xva = rp_channelize(Xva_raw, rp_size=args.rp_size, sigma=args.rp_sigma)
+        Xte = rp_channelize(Xte_raw, rp_size=args.rp_size, sigma=args.rp_sigma)
 
-        # Optional class weights
         class_weight = None
         if args.class_weight:
             counts = np.bincount(ytr, minlength=n_users).astype(np.float32)
@@ -446,7 +365,7 @@ def main():
             wd=args.wd,
             patience=args.patience,
             cnn_base=args.cnn_base,
-            class_weight=class_weight,
+            class_weight=class_weight
         )
 
         yp = predict_model(model, Xte, bs=args.batch_size)
@@ -463,9 +382,9 @@ def main():
     else:
         overall = float("nan")
 
-    print(f"Overall TEST acc (stft1d): {overall:.3f}")
+    print(f"Overall TEST acc (rp1d): {overall:.3f}")
 
-    row = {"model": "cnn_stft1d", "overall_acc": overall}
+    row = {"model": "cnn_rp1d", "overall_acc": overall}
     for t in tasks:
         row[f"task{t}_acc"] = per_task_acc.get(t, np.nan)
     results.append(row)
