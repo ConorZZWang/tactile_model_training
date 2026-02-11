@@ -509,3 +509,68 @@ Overall TEST acc (stft1d): 0.775
 === SUMMARY ===
      model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
 cnn_stft1d     0.775492   0.726124   0.748544   0.733733   0.819007   0.772505   0.796224   0.869759
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_stft_xgb_feats `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --stft_n_fft 128 --stft_hop 8 --stft_keep_bins 64 --use_log_power `
+>>   --out_csv runs/xgb_static.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: xgb(stft-features) ===
+[task 0] test_acc 0.596
+[task 1] test_acc 0.698
+[task 2] test_acc 0.675
+[task 3] test_acc 0.739
+[task 4] test_acc 0.722
+[task 5] test_acc 0.727
+[task 6] test_acc 0.796
+Overall TEST acc (xgb_stft_feats): 0.699
+
+=== SUMMARY ===
+         model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+xgb_stft_feats     0.699223   0.596442   0.698253   0.674658   0.739104   0.722261   0.727214   0.795718
+[saved] runs/xgb_static.csv
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_stft_xgb_feats `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --stft_n_fft 128 --stft_hop 8 --stft_keep_bins 64 --use_log_power `
+>>   --band_dynamics `
+>>   --out_csv runs/xgb_banddyn.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: xgb(stft-features) ===
+[task 0] test_acc 0.647
+[task 1] test_acc 0.729
+[task 2] test_acc 0.711
+[task 3] test_acc 0.773
+[task 4] test_acc 0.734
+[task 5] test_acc 0.758
+[task 6] test_acc 0.836
+Overall TEST acc (xgb_stft_feats): 0.733
+
+=== SUMMARY ===
+         model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+xgb_stft_feats     0.733333   0.646536   0.728957   0.711473   0.773002   0.734124   0.757812   0.835861
+[saved] runs/xgb_banddyn.csv
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_stft_xgb_feats `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --stft_n_fft 128 --stft_hop 8 --stft_keep_bins 64 --use_log_power `
+>>   --band_dynamics `
+>>   --xgb_depth 10 --xgb_min_child 3 --xgb_gamma 0.2 `
+>>   --xgb_subsample 0.9 --xgb_colsample 0.9 `
+>>   --out_csv runs/xgb_banddyn_stronger.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: xgb(stft-features) ===
+[task 0] test_acc 0.642
+[task 1] test_acc 0.733
+[task 2] test_acc 0.716
+[task 3] test_acc 0.774
+[task 4] test_acc 0.732
+[task 5] test_acc 0.746
+[task 6] test_acc 0.831
+Overall TEST acc (xgb_stft_feats): 0.731
+
+=== SUMMARY ===
+         model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+xgb_stft_feats      0.73123   0.642322   0.732663   0.715753   0.773608   0.732031   0.746094   0.830508
+[saved] runs/xgb_banddyn_stronger.csv
