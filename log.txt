@@ -574,3 +574,303 @@ Overall TEST acc (xgb_stft_feats): 0.731
          model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
 xgb_stft_feats      0.73123   0.642322   0.732663   0.715753   0.773608   0.732031   0.746094   0.830508
 [saved] runs/xgb_banddyn_stronger.csv
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_stft_embed_xgb `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --stft_n_fft 128 --stft_hop 8 --stft_keep_bins 64 `
+>>   --cnn_base 192 --epochs 40 --batch_size 192 --class_weight `
+>>   --xgb_estimators 5000 --early_stop 250 --xgb_lr 0.03 `
+>>   --xgb_depth 6 --xgb_min_child 5 --xgb_gamma 0.2 `
+>>   --xgb_subsample 0.8 --xgb_colsample 0.8 --xgb_lambda 5 `
+>>   --out_csv runs/stft_embed_xgb_push.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: stft->cnn-embed->xgb ===
+[task 0] test_acc 0.731
+[task 1] test_acc 0.812
+[task 2] test_acc 0.819
+[task 3] test_acc 0.860
+[task 4] test_acc 0.786
+[task 5] test_acc 0.851
+[task 6] test_acc 0.905
+Overall TEST acc (stft_embed_xgb): 0.813
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_mrstft1d `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --stft1_n_fft 128 --stft1_hop 8 --stft1_keep_bins 64 ` 
+>>   --stft2_n_fft 256 --stft2_hop 32 --stft2_keep_bins 96 `
+>>   --cnn_base 192 --epochs 40 --batch_size 192 `
+>>   --out_csv runs/mrstft_128_8_64__256_32_96.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(multi-res-stft) ===
+[task 0] test_acc 0.618
+[task 1] test_acc 0.666
+[task 2] test_acc 0.655
+[task 3] test_acc 0.712
+[task 4] test_acc 0.632
+[task 5] test_acc 0.702
+[task 6] test_acc 0.770
+Overall TEST acc (mrstft1d): 0.674
+KeyboardInterrupt
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_cwt1d `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --fs 250 --cwt_scales 16 --cwt_smin 1 --cwt_smax 64 --cwt_w 6 `
+>>   --cnn_base 64 --epochs 2 --batch_size 128 `
+>>   --out_csv runs/cwt_smoketest.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(cwt-channelized) ===
+[task 0] test_acc 0.463
+[task 1] test_acc 0.477
+[task 2] test_acc 0.472
+[task 3] test_acc 0.518
+[task 4] test_acc 0.456
+[task 5] test_acc 0.460
+[task 6] test_acc 0.579
+Overall TEST acc (cwt1d): 0.485
+
+=== SUMMARY ===
+    model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_cwt1d     0.485139   0.462547   0.476972   0.471747   0.517554   0.456385   0.460286   0.578947
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_mel1d `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --fs 250 --n_fft 128 --hop 8 --mel_bins 48 --mel_fmax 100 `
+>>   --cnn_base 192 --epochs 40 --batch_size 192 `
+>>   --out_csv runs/mel_48.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(mel-channelized) ===
+[task 0] test_acc 0.693
+[task 1] test_acc 0.702
+[task 2] test_acc 0.742
+[task 3] test_acc 0.785
+[task 4] test_acc 0.717
+[task 5] test_acc 0.780
+[task 6] test_acc 0.767
+Overall TEST acc (mel1d): 0.737
+
+=== SUMMARY ===
+    model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_mel1d     0.736534   0.692884   0.701959   0.742295   0.784504   0.716678   0.779948   0.767172
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_cwt1d `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --cwt_scales 48 --cwt_smin 2 --cwt_smax 96 --cwt_w 6 `
+>>   --cnn_base 192 --epochs 40 --batch_size 192 `
+>>   --out_csv runs/cwt_fair_48.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: cnn(cwt-channelized) ===
+[task 0] test_acc 0.631
+[task 1] test_acc 0.720
+[task 2] test_acc 0.752
+[task 3] test_acc 0.791
+[task 4] test_acc 0.719
+[task 5] test_acc 0.734
+[task 6] test_acc 0.827
+Overall TEST acc (cwt1d): 0.729
+
+=== SUMMARY ===
+    model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+cnn_cwt1d     0.729492   0.631086   0.719958   0.751712   0.791162   0.718772   0.733724    0.82694
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_stft2d --window_len 768 --stride 256 --use_ema --window_norm --stft_n_fft 128 --stft_hop 8 --stft_keep_bins 64 --epochs 25 --batch_size 128 --class_weight --out_csv runs/stft2d_resnet18_n128_h8_k64.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: stft2d->resnet18 ===
+[task 0] test_acc 0.600
+[task 1] test_acc 0.699
+[task 2] test_acc 0.646
+[task 3] test_acc 0.696
+[task 4] test_acc 0.682
+[task 5] test_acc 0.678
+[task 6] test_acc 0.797
+Overall TEST acc (stft2d): 0.678
+
+=== SUMMARY ===
+          model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+stft2d_resnet18     0.678372   0.600187   0.698782   0.646404   0.695521   0.681786   0.678385    0.79661
+[saved] runs/stft2d_resnet18_n128_h8_k64.csv
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_stft2d `                                                                                          
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --stft_n_fft 128 --stft_hop 8 --stft_keep_bins 64 `
+>>   --epochs 80 --batch_size 128 --class_weight `
+>>   --out_csv runs/stft2d_resnet18_ep80.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: stft2d->resnet18 ===
+[task 0] test_acc 0.643
+[task 1] test_acc 0.705
+[task 2] test_acc 0.725
+[task 3] test_acc 0.700
+[task 4] test_acc 0.717
+[task 5] test_acc 0.721
+[task 6] test_acc 0.816
+Overall TEST acc (stft2d): 0.709
+
+=== SUMMARY ===
+          model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+stft2d_resnet18     0.709465    0.64279   0.705135   0.725171   0.699758   0.717376   0.720703   0.816236
+[saved] runs/stft2d_resnet18_ep80.csv
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.bench_user_per_task_rawnn_stft2d `
+>>   --window_len 768 --stride 256 --use_ema --window_norm `
+>>   --stft_n_fft 256 --stft_hop 16 --stft_keep_bins 96 `
+>>   --epochs 80 --batch_size 128 --class_weight `
+>>   --out_csv runs/stft2d_resnet18_n256_h16_k96_ep80.csv
+Raw windows: (54451, 3, 768) | users: Counter({np.int64(1): 10607, np.int64(2): 9566, np.int64(4): 9348, np.int64(5): 9035, np.int64(0): 6602, np.int64(6): 4704, np.int64(3): 4589}) | tasks: Counter({np.int64(0): 10646, np.int64(1): 9413, np.int64(3): 8230, np.int64(5): 7645, np.int64(4): 7143, np.int64(2): 5803, np.int64(6): 5571})
+
+=== MODEL: stft2d->resnet18 ===
+[task 0] test_acc 0.477
+[task 1] test_acc 0.567
+[task 2] test_acc 0.539
+[task 3] test_acc 0.546
+[task 4] test_acc 0.482
+[task 5] test_acc 0.612
+[task 6] test_acc 0.649
+Overall TEST acc (stft2d): 0.547
+
+=== SUMMARY ===
+          model  overall_acc  task0_acc  task1_acc  task2_acc  task3_acc  task4_acc  task5_acc  task6_acc
+stft2d_resnet18     0.547051    0.47706   0.567496   0.539384   0.546005   0.482205   0.611979    0.64942
+[saved] runs/stft2d_resnet18_n256_h16_k96_ep80.csv
+
+(.venv) PS C:\Users\Wang\Desktop\Uni\Y4\tactile_model_training> python -m TAC.train_user_transformer_features_paper --seq_len 512 --per_user_train 100 --per_user_test 20 --slices_per_csv 120 --slice_frac 0.6 --epochs 100 --batch 16 --lr 1e-4 --d_model 256 --nhead 16 --num_layers 2 --dim_ff 256 --dropout 0.1
+Sequences: (5880, 26, 512) | users: Counter({np.int64(0): 840, np.int64(1): 840, np.int64(2): 840, np.int64(3): 840, np.int64(4): 840, np.int64(5): 840, np.int64(6): 840}) | tasks: Counter({np.int64(0): 840, np.int64(1): 840, np.int64(2): 840, np.int64(3): 840, np.int64(4): 840, np.int64(5): 840, np.int64(6): 840})
+[INFO] seq_len=512, users=7, tasks=[0, 1, 2, 3, 4, 5, 6]
+[task 0] train 700  test 140
+[task 0] TEST acc 0.986
+
+[task 0] User Confusion Matrix (%)
+true\pred        u1       u2       u3       u4       u5       u6       u7
+        u1    100.0      0.0      0.0      0.0      0.0      0.0      0.0
+        u2      0.0     95.0      0.0      0.0      5.0      0.0      0.0
+        u3      0.0      0.0    100.0      0.0      0.0      0.0      0.0
+        u4      0.0      0.0      0.0    100.0      0.0      0.0      0.0
+        u5      0.0      5.0      0.0      0.0     95.0      0.0      0.0
+        u6      0.0      0.0      0.0      0.0      0.0    100.0      0.0
+        u7      0.0      0.0      0.0      0.0      0.0      0.0    100.0
+[saved] runs/confusion_matrices\task_0_user_confusion.png
+
+[task 0] Predicted-user distribution (%)
+u1:14.3 u2:14.3 u3:14.3 u4:14.3 u5:14.3 u6:14.3 u7:14.3
+[task 1] train 700  test 140
+[task 1] TEST acc 0.950
+
+[task 1] User Confusion Matrix (%)
+true\pred        u1       u2       u3       u4       u5       u6       u7
+        u1    100.0      0.0      0.0      0.0      0.0      0.0      0.0
+        u2      0.0     80.0      0.0      0.0      5.0     15.0      0.0
+        u3      0.0      0.0    100.0      0.0      0.0      0.0      0.0
+        u4      0.0      0.0      0.0    100.0      0.0      0.0      0.0
+        u5      0.0     10.0      0.0      0.0     90.0      0.0      0.0
+        u6      0.0      0.0      0.0      0.0      0.0    100.0      0.0
+        u7      0.0      0.0      5.0      0.0      0.0      0.0     95.0
+[saved] runs/confusion_matrices\task_1_user_confusion.png
+
+[task 1] Predicted-user distribution (%)
+u1:14.3 u2:12.9 u3:15.0 u4:14.3 u5:13.6 u6:16.4 u7:13.6
+[task 2] train 700  test 140
+[task 2] TEST acc 0.971
+
+[task 2] User Confusion Matrix (%)
+true\pred        u1       u2       u3       u4       u5       u6       u7
+        u1     95.0      0.0      0.0      0.0      5.0      0.0      0.0
+        u2      0.0    100.0      0.0      0.0      0.0      0.0      0.0
+        u3      0.0      0.0    100.0      0.0      0.0      0.0      0.0
+        u4      0.0      0.0      0.0     85.0      0.0     10.0      5.0
+        u5      0.0      0.0      0.0      0.0    100.0      0.0      0.0
+        u6      0.0      0.0      0.0      0.0      0.0    100.0      0.0
+        u7      0.0      0.0      0.0      0.0      0.0      0.0    100.0
+[saved] runs/confusion_matrices\task_2_user_confusion.png
+
+[task 2] Predicted-user distribution (%)
+u1:13.6 u2:14.3 u3:14.3 u4:12.1 u5:15.0 u6:15.7 u7:15.0
+[task 3] train 700  test 140
+[task 3] TEST acc 0.986
+
+[task 3] User Confusion Matrix (%)
+true\pred        u1       u2       u3       u4       u5       u6       u7
+        u1    100.0      0.0      0.0      0.0      0.0      0.0      0.0
+        u2      0.0     95.0      0.0      0.0      0.0      0.0      5.0
+        u3      0.0      0.0    100.0      0.0      0.0      0.0      0.0
+        u4      0.0      0.0      0.0    100.0      0.0      0.0      0.0
+        u5      0.0      0.0      0.0      0.0    100.0      0.0      0.0
+        u6      0.0      0.0      0.0      0.0      0.0    100.0      0.0
+        u7      0.0      5.0      0.0      0.0      0.0      0.0     95.0
+[saved] runs/confusion_matrices\task_3_user_confusion.png
+
+[task 3] Predicted-user distribution (%)
+u1:14.3 u2:14.3 u3:14.3 u4:14.3 u5:14.3 u6:14.3 u7:14.3
+[task 4] train 700  test 140
+[task 4] TEST acc 1.000
+
+[task 4] User Confusion Matrix (%)
+true\pred        u1       u2       u3       u4       u5       u6       u7
+        u1    100.0      0.0      0.0      0.0      0.0      0.0      0.0
+        u2      0.0    100.0      0.0      0.0      0.0      0.0      0.0
+        u3      0.0      0.0    100.0      0.0      0.0      0.0      0.0
+        u4      0.0      0.0      0.0    100.0      0.0      0.0      0.0
+        u5      0.0      0.0      0.0      0.0    100.0      0.0      0.0
+        u6      0.0      0.0      0.0      0.0      0.0    100.0      0.0
+        u7      0.0      0.0      0.0      0.0      0.0      0.0    100.0
+[saved] runs/confusion_matrices\task_4_user_confusion.png
+
+[task 4] Predicted-user distribution (%)
+u1:14.3 u2:14.3 u3:14.3 u4:14.3 u5:14.3 u6:14.3 u7:14.3
+[task 5] train 700  test 140
+[task 5] TEST acc 0.986
+
+[task 5] User Confusion Matrix (%)
+true\pred        u1       u2       u3       u4       u5       u6       u7
+        u1     95.0      0.0      0.0      0.0      0.0      0.0      5.0
+        u2      0.0    100.0      0.0      0.0      0.0      0.0      0.0
+        u3      0.0      0.0    100.0      0.0      0.0      0.0      0.0
+        u4      0.0      0.0      0.0    100.0      0.0      0.0      0.0
+        u5      0.0      0.0      0.0      0.0    100.0      0.0      0.0
+        u6      0.0      0.0      0.0      0.0      0.0    100.0      0.0
+        u7      5.0      0.0      0.0      0.0      0.0      0.0     95.0
+[saved] runs/confusion_matrices\task_5_user_confusion.png
+
+[task 5] Predicted-user distribution (%)
+u1:14.3 u2:14.3 u3:14.3 u4:14.3 u5:14.3 u6:14.3 u7:14.3
+[task 6] train 700  test 140
+[task 6] TEST acc 0.986
+
+[task 6] User Confusion Matrix (%)
+true\pred        u1       u2       u3       u4       u5       u6       u7
+        u1    100.0      0.0      0.0      0.0      0.0      0.0      0.0
+        u2      0.0    100.0      0.0      0.0      0.0      0.0      0.0
+        u3      0.0      0.0    100.0      0.0      0.0      0.0      0.0
+        u4      0.0      0.0      0.0    100.0      0.0      0.0      0.0
+        u5     10.0      0.0      0.0      0.0     90.0      0.0      0.0
+        u6      0.0      0.0      0.0      0.0      0.0    100.0      0.0
+        u7      0.0      0.0      0.0      0.0      0.0      0.0    100.0
+[saved] runs/confusion_matrices\task_6_user_confusion.png
+
+[task 6] Predicted-user distribution (%)
+u1:15.7 u2:14.3 u3:14.3 u4:14.3 u5:12.9 u6:14.3 u7:14.3
+
+=== SUMMARY (paper Transformer, per-CSV CROPS, two-stream FEATURES) ===
+task 0: 0.986
+task 1: 0.950
+task 2: 0.971
+task 3: 0.986
+task 4: 1.000
+task 5: 0.986
+task 6: 0.986
+OVERALL mean acc: 0.981
+
+=== TASK -> PREDICTED USER SUMMARY MATRIX (%) ===
+task\user        u1       u2       u3       u4       u5       u6       u7
+     task0     14.3     14.3     14.3     14.3     14.3     14.3     14.3
+     task1     14.3     12.9     15.0     14.3     13.6     16.4     13.6
+     task2     13.6     14.3     14.3     12.1     15.0     15.7     15.0
+     task3     14.3     14.3     14.3     14.3     14.3     14.3     14.3
+     task4     14.3     14.3     14.3     14.3     14.3     14.3     14.3
+     task5     14.3     14.3     14.3     14.3     14.3     14.3     14.3
+     task6     15.7     14.3     14.3     14.3     12.9     14.3     14.3
+[saved] runs/task_user_summary_matrix.png
