@@ -1,3 +1,4 @@
+# TAC/bench_user_per_task_rawnn_mrstft1d.py
 # Per-task USER authentication using multi-resolution STFT (stack 2 STFT configs),
 # channelized into (C, T) for a 1D CNN.
 #
@@ -9,6 +10,9 @@
 #     --stft2_n_fft 256 --stft2_hop 32 --stft2_keep_bins 96 `
 #     --out_csv runs/mrstft1d.csv
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import os
 import argparse
 from collections import Counter
@@ -24,6 +28,84 @@ import torch.optim as optim
 from TAC.load_all import iter_force_files, DATA_ROOT
 
 torch.backends.cudnn.benchmark = True
+
+
+def confusion_matrix_np(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int) -> np.ndarray:
+    cm = np.zeros((n_classes, n_classes), dtype=np.int32)
+    for t, p in zip(y_true, y_pred):
+        cm[t, p] += 1
+    return cm
+
+
+def row_normalise_percent(cm: np.ndarray) -> np.ndarray:
+    cm = cm.astype(np.float32)
+    row_sums = cm.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1.0
+    return 100.0 * cm / row_sums
+
+
+def print_confusion_matrix_percent(cm_pct: np.ndarray, title: str, labels=None):
+    print(f"\n{title}")
+    n = cm_pct.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    header = "true\\pred".ljust(10) + " " + " ".join([f"{lab:>8}" for lab in labels])
+    print(header)
+    for i in range(n):
+        row_str = " ".join([f"{cm_pct[i, j]:8.1f}" for j in range(n)])
+        print(f"{labels[i]:>10} {row_str}")
+
+
+def save_confusion_matrix_plot(cm_pct: np.ndarray, task_id: int, model_name: str,
+                               labels=None, save_dir="runs/confusion_matrices"):
+    os.makedirs(save_dir, exist_ok=True)
+    n = cm_pct.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(cm_pct, cmap="Blues", vmin=0, vmax=100)
+
+    ax.set_title(f"{model_name} - Task {task_id} Confusion Matrix (%)")
+    ax.set_xlabel("Predicted User")
+    ax.set_ylabel("True User")
+    ax.set_xticks(np.arange(n))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels(labels)
+
+    for i in range(n):
+        for j in range(n):
+            ax.text(j, i, f"{cm_pct[i, j]:.1f}", ha="center", va="center", fontsize=8)
+
+    fig.colorbar(im, ax=ax, label="Percentage")
+    fig.tight_layout()
+
+    out_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm.png")
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[saved] {out_path}")
+
+
+def save_confusion_matrix_csv(cm: np.ndarray, cm_pct: np.ndarray, task_id: int, model_name: str,
+                              labels=None, save_dir="runs/confusion_matrices"):
+    os.makedirs(save_dir, exist_ok=True)
+    n = cm.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    df_counts = pd.DataFrame(cm, index=labels, columns=labels)
+    df_pct = pd.DataFrame(cm_pct, index=labels, columns=labels)
+
+    counts_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm_counts.csv")
+    pct_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm_percent.csv")
+
+    df_counts.to_csv(counts_path)
+    df_pct.to_csv(pct_path)
+
+    print(f"[saved] {counts_path}")
+    print(f"[saved] {pct_path}")
 
 
 def zwin(x: np.ndarray) -> np.ndarray:
@@ -108,7 +190,9 @@ def split_per_task_within_user(y_user, y_task, task_id, seed=42, ratios=(0.6, 0.
         nva = int(ratios[1] * n)
         tr, va, te = iu[:ntr], iu[ntr:ntr + nva], iu[ntr + nva:]
         if len(tr) and len(va) and len(te):
-            tr_all.append(tr); va_all.append(va); te_all.append(te)
+            tr_all.append(tr)
+            va_all.append(va)
+            te_all.append(te)
 
     if not tr_all:
         return np.array([], dtype=int), np.array([], dtype=int), np.array([], dtype=int)
@@ -138,18 +222,18 @@ def stft_one(
         xc, n_fft=n_fft, hop_length=hop, win_length=n_fft,
         window=window, center=True, return_complex=True
     )
-    mag = torch.abs(spec)  # (N*C, F, W)
+    mag = torch.abs(spec)
     mag = torch.log(mag + log_eps)
 
     kb = min(keep_bins, mag.shape[1])
-    mag = mag[:, :kb, :]   # (N*C, kb, W)
+    mag = mag[:, :kb, :]
 
     if per_bin_norm:
         m = mag.mean(dim=2, keepdim=True)
         s = mag.std(dim=2, keepdim=True) + 1e-6
         mag = (mag - m) / s
 
-    mag = mag.reshape(N, C * kb, mag.shape[2])  # (N, 3*kb, W)
+    mag = mag.reshape(N, C * kb, mag.shape[2])
     return mag
 
 
@@ -165,15 +249,14 @@ def mrstft_channelize(
     n1, h1, k1 = stft1
     n2, h2, k2 = stft2
 
-    a = stft_one(X, n_fft=n1, hop=h1, keep_bins=k1)  # (N, C1, W1)
-    b = stft_one(X, n_fft=n2, hop=h2, keep_bins=k2)  # (N, C2, W2)
+    a = stft_one(X, n_fft=n1, hop=h1, keep_bins=k1)
+    b = stft_one(X, n_fft=n2, hop=h2, keep_bins=k2)
 
-    # Match time frames by trimming to min W
     W = min(a.shape[2], b.shape[2])
     a = a[:, :, :W]
     b = b[:, :, :W]
 
-    out = torch.cat([a, b], dim=1)  # (N, C1+C2, W)
+    out = torch.cat([a, b], dim=1)
     return out.detach().cpu().numpy().astype(np.float32, copy=False)
 
 
@@ -218,7 +301,8 @@ class CNN1D(nn.Module):
 
 
 def train_one_model(Xtr, ytr, Xva, yva, n_classes, seed, max_epochs, bs, lr, wd, patience, cnn_base, class_weight=None):
-    torch.manual_seed(seed); np.random.seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = CNN1D(in_channels=Xtr.shape[1], n_classes=n_classes, base=cnn_base).to(device)
@@ -241,7 +325,8 @@ def train_one_model(Xtr, ytr, Xva, yva, n_classes, seed, max_epochs, bs, lr, wd,
     for _ep in range(1, max_epochs + 1):
         model.train()
         for xb, yb in dl_tr:
-            xb = xb.to(device); yb = yb.to(device)
+            xb = xb.to(device)
+            yb = yb.to(device)
             opt.zero_grad(set_to_none=True)
             loss = crit(model(xb), yb)
             loss.backward()
@@ -252,9 +337,11 @@ def train_one_model(Xtr, ytr, Xva, yva, n_classes, seed, max_epochs, bs, lr, wd,
             correct = 0
             n = 0
             for xb, yb in dl_va:
-                xb = xb.to(device); yb = yb.to(device)
+                xb = xb.to(device)
+                yb = yb.to(device)
                 pr = model(xb).argmax(1)
-                correct += int((pr == yb).sum().item()); n += len(xb)
+                correct += int((pr == yb).sum().item())
+                n += len(xb)
             va_acc = correct / max(1, n)
 
         if va_acc > best_va:
@@ -329,6 +416,7 @@ def main():
     print("\n=== MODEL: cnn(multi-res-stft) ===")
     per_task_acc = {}
     all_te_true, all_te_pred = [], []
+    per_task_true, per_task_pred = {}, {}
 
     stft1 = (args.stft1_n_fft, args.stft1_hop, args.stft1_keep_bins)
     stft2 = (args.stft2_n_fft, args.stft2_hop, args.stft2_keep_bins)
@@ -343,7 +431,9 @@ def main():
         ytr, yva, yte = y_user[tr], y_user[va], y_user[te]
 
         if args.window_norm:
-            Xtr_raw = zwin(Xtr_raw); Xva_raw = zwin(Xva_raw); Xte_raw = zwin(Xte_raw)
+            Xtr_raw = zwin(Xtr_raw)
+            Xva_raw = zwin(Xva_raw)
+            Xte_raw = zwin(Xte_raw)
 
         Xtr_m = mrstft_channelize(Xtr_raw, stft1=stft1, stft2=stft2)
         Xva_m = mrstft_channelize(Xva_raw, stft1=stft1, stft2=stft2)
@@ -372,7 +462,10 @@ def main():
         yp = predict_model(model, Xte_m, bs=args.batch_size)
         acc = float((yp == yte).mean())
         per_task_acc[t] = acc
-        all_te_true.append(yte); all_te_pred.append(yp)
+        all_te_true.append(yte)
+        all_te_pred.append(yp)
+        per_task_true[t] = yte.copy()
+        per_task_pred[t] = yp.copy()
         print(f"[task {t}] test_acc {acc:.3f}")
 
     if all_te_true:
@@ -388,12 +481,46 @@ def main():
     for t in tasks:
         row[f"task{t}_acc"] = per_task_acc.get(t, np.nan)
     df = pd.DataFrame([row])
+
     print("\n=== SUMMARY ===")
     print(df.to_string(index=False))
 
     os.makedirs(os.path.dirname(args.out_csv) or ".", exist_ok=True)
     df.to_csv(args.out_csv, index=False)
     print(f"[saved] {args.out_csv}")
+
+    labels = [f"u{i+1}" for i in range(n_users)]
+    model_name = "cnn_mrstft1d"
+
+    for t in tasks:
+        if t not in per_task_true:
+            continue
+
+        cm = confusion_matrix_np(per_task_true[t], per_task_pred[t], n_users)
+        cm_pct = row_normalise_percent(cm)
+
+        print_confusion_matrix_percent(
+            cm_pct,
+            title=f"[task {t}] User Confusion Matrix (%)",
+            labels=labels,
+        )
+
+        save_confusion_matrix_plot(
+            cm_pct,
+            task_id=t,
+            model_name=model_name,
+            labels=labels,
+            save_dir="runs/confusion_matrices",
+        )
+
+        save_confusion_matrix_csv(
+            cm,
+            cm_pct,
+            task_id=t,
+            model_name=model_name,
+            labels=labels,
+            save_dir="runs/confusion_matrices",
+        )
 
 
 if __name__ == "__main__":

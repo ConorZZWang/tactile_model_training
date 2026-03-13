@@ -1,3 +1,4 @@
+# TAC/bench_user_per_task_rawnn_stft2d.py
 # Per-task USER authentication using a 2D CNN on STFT spectrogram "images".
 #
 # Pipeline:
@@ -6,7 +7,7 @@
 #   3) STFT per axis -> log-magnitude spectrogram (F, W)
 #   4) Stack axes as channels: (N, 3, F, W)
 #      Optional delta over time frames -> (N, 6, F, W)
-#   5) Train a small spectrogram CNN (SpecCNN) per task (same split strategy as your other scripts)
+#   5) Train a small spectrogram CNN (SpecCNN) per task
 #
 # Example:
 #   python -m TAC.bench_user_per_task_rawnn_stft2d `
@@ -22,10 +23,13 @@
 #     --epochs 80 --batch_size 128 --class_weight `
 #     --out_csv runs/stft2d_speccnn_delta_n128_h8_k64_ep80.csv
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import os
 import argparse
 from collections import Counter
-from typing import Tuple, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -39,12 +43,85 @@ from TAC.load_all import iter_force_files, DATA_ROOT
 torch.backends.cudnn.benchmark = True
 
 
-# ---------------------------
-# Helpers
-# ---------------------------
+def confusion_matrix_np(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int) -> np.ndarray:
+    cm = np.zeros((n_classes, n_classes), dtype=np.int32)
+    for t, p in zip(y_true, y_pred):
+        cm[t, p] += 1
+    return cm
+
+
+def row_normalise_percent(cm: np.ndarray) -> np.ndarray:
+    cm = cm.astype(np.float32)
+    row_sums = cm.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1.0
+    return 100.0 * cm / row_sums
+
+
+def print_confusion_matrix_percent(cm_pct: np.ndarray, title: str, labels=None):
+    print(f"\n{title}")
+    n = cm_pct.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    header = "true\\pred".ljust(10) + " " + " ".join([f"{lab:>8}" for lab in labels])
+    print(header)
+    for i in range(n):
+        row_str = " ".join([f"{cm_pct[i, j]:8.1f}" for j in range(n)])
+        print(f"{labels[i]:>10} {row_str}")
+
+
+def save_confusion_matrix_plot(cm_pct: np.ndarray, task_id: int, model_name: str,
+                               labels=None, save_dir="runs/confusion_matrices"):
+    os.makedirs(save_dir, exist_ok=True)
+    n = cm_pct.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(cm_pct, cmap="Blues", vmin=0, vmax=100)
+
+    ax.set_title(f"{model_name} - Task {task_id} Confusion Matrix (%)")
+    ax.set_xlabel("Predicted User")
+    ax.set_ylabel("True User")
+    ax.set_xticks(np.arange(n))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels(labels)
+
+    for i in range(n):
+        for j in range(n):
+            ax.text(j, i, f"{cm_pct[i, j]:.1f}", ha="center", va="center", fontsize=8)
+
+    fig.colorbar(im, ax=ax, label="Percentage")
+    fig.tight_layout()
+
+    out_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm.png")
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[saved] {out_path}")
+
+
+def save_confusion_matrix_csv(cm: np.ndarray, cm_pct: np.ndarray, task_id: int, model_name: str,
+                              labels=None, save_dir="runs/confusion_matrices"):
+    os.makedirs(save_dir, exist_ok=True)
+    n = cm.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    df_counts = pd.DataFrame(cm, index=labels, columns=labels)
+    df_pct = pd.DataFrame(cm_pct, index=labels, columns=labels)
+
+    counts_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm_counts.csv")
+    pct_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm_percent.csv")
+
+    df_counts.to_csv(counts_path)
+    df_pct.to_csv(pct_path)
+
+    print(f"[saved] {counts_path}")
+    print(f"[saved] {pct_path}")
+
 
 def zwin(x: np.ndarray) -> np.ndarray:
-    """Per-window z-normalization: (N, C, T) -> (N, C, T)."""
     mu = x.mean(axis=2, keepdims=True)
     sd = x.std(axis=2, keepdims=True) + 1e-8
     return (x - mu) / sd
@@ -60,12 +137,6 @@ def ema_1d(series: np.ndarray, alpha: float) -> np.ndarray:
 
 
 def windows_from_index(all_index, window_len=512, stride=512, use_ema=False, ema_alpha=0.001):
-    """
-    Return:
-      X: (N, 3, T)
-      y_user: (N,)
-      y_task: (N,)
-    """
     X_list, y_user_list, y_task_list = [], [], []
     user_map, task_map = {}, {}
 
@@ -142,10 +213,6 @@ def split_per_task_within_user(y_user, y_task, task_id, seed=42, ratios=(0.6, 0.
     return np.concatenate(tr_all), np.concatenate(va_all), np.concatenate(te_all)
 
 
-# ---------------------------
-# STFT -> 2D "image" tensor
-# ---------------------------
-
 @torch.no_grad()
 def stft2d(
     X: np.ndarray,
@@ -160,19 +227,17 @@ def stft2d(
     X: (N, 3, T) float32
     Returns:
       - if delta=False: (N, 3, kb, W)
-      - if delta=True : (N, 6, kb, W)  (mag + delta-mag)
+      - if delta=True : (N, 6, kb, W)
     """
     assert X.ndim == 3 and X.shape[1] == 3
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    xt = torch.tensor(X, dtype=torch.float32, device=device)  # (N,3,T)
+    xt = torch.tensor(X, dtype=torch.float32, device=device)
     N, C, T = xt.shape
 
-    # Flatten for one STFT call: (N*C, T)
     xc = xt.reshape(N * C, T)
     window = torch.hann_window(n_fft, device=device)
 
-    # (N*C, F, W) complex
     spec = torch.stft(
         xc,
         n_fft=n_fft,
@@ -182,39 +247,28 @@ def stft2d(
         center=True,
         return_complex=True,
     )
-    mag = torch.abs(spec)                    # (N*C, F, W)
-    mag = torch.log(mag + log_eps)           # log-magnitude
+    mag = torch.abs(spec)
+    mag = torch.log(mag + log_eps)
 
     kb = min(keep_bins, mag.shape[1])
-    mag = mag[:, :kb, :]                     # (N*C, kb, W)
+    mag = mag[:, :kb, :]
 
-    # per-frequency-bin normalization across time frames (per sample)
     if per_bin_norm:
         m = mag.mean(dim=2, keepdim=True)
         s = mag.std(dim=2, keepdim=True) + 1e-6
         mag = (mag - m) / s
 
-    # reshape to (N, C, kb, W)
     mag = mag.reshape(N, C, kb, mag.shape[2])
 
     if delta:
-        # delta over time frames (W direction)
-        d = mag[:, :, :, 1:] - mag[:, :, :, :-1]                  # (N,C,kb,W-1)
-        d = torch.cat([d[:, :, :, :1], d], dim=3)                  # pad -> (N,C,kb,W)
-        mag = torch.cat([mag, d], dim=1)                           # (N,2C,kb,W) = (N,6,kb,W)
+        d = mag[:, :, :, 1:] - mag[:, :, :, :-1]
+        d = torch.cat([d[:, :, :, :1], d], dim=3)
+        mag = torch.cat([mag, d], dim=1)
 
     return mag.detach().cpu().numpy().astype(np.float32, copy=False)
 
 
-# ---------------------------
-# 2D Spectrogram CNN (small, controlled downsampling)
-# ---------------------------
-
 class SpecCNN(nn.Module):
-    """
-    Small 2D CNN designed for small spectrograms (kb x W).
-    Avoids the heavy downsampling of ResNet.
-    """
     def __init__(self, in_ch: int, n_classes: int, base: int = 32, dropout: float = 0.25):
         super().__init__()
         self.features = nn.Sequential(
@@ -255,10 +309,6 @@ class SpecCNN(nn.Module):
         return self.head(x)
 
 
-# ---------------------------
-# Train / predict
-# ---------------------------
-
 def train_one_model_2d(
     Xtr: np.ndarray, ytr: np.ndarray,
     Xva: np.ndarray, yva: np.ndarray,
@@ -297,7 +347,8 @@ def train_one_model_2d(
     for _ep in range(1, max_epochs + 1):
         model.train()
         for xb, yb in dl_tr:
-            xb = xb.to(device); yb = yb.to(device)
+            xb = xb.to(device)
+            yb = yb.to(device)
             opt.zero_grad(set_to_none=True)
             loss = crit(model(xb), yb)
             loss.backward()
@@ -308,9 +359,11 @@ def train_one_model_2d(
             correct = 0
             n = 0
             for xb, yb in dl_va:
-                xb = xb.to(device); yb = yb.to(device)
+                xb = xb.to(device)
+                yb = yb.to(device)
                 pr = model(xb).argmax(1)
-                correct += int((pr == yb).sum().item()); n += len(xb)
+                correct += int((pr == yb).sum().item())
+                n += len(xb)
             va_acc = correct / max(1, n)
 
         if va_acc > best_va:
@@ -338,10 +391,6 @@ def predict_model_2d(model: nn.Module, X: np.ndarray, bs: int):
         out.append(model(xb).argmax(1).detach().cpu().numpy())
     return np.concatenate(out, axis=0)
 
-
-# ---------------------------
-# Main
-# ---------------------------
 
 def main():
     ap = argparse.ArgumentParser("Per-task USER authentication with 2D CNN on STFT spectrograms")
@@ -389,6 +438,7 @@ def main():
     results = []
     per_task_acc = {}
     all_te_true, all_te_pred = [], []
+    per_task_true, per_task_pred = {}, {}
 
     print("\n=== MODEL: stft2d->speccnn ===")
 
@@ -406,7 +456,6 @@ def main():
             Xva_raw = zwin(Xva_raw)
             Xte_raw = zwin(Xte_raw)
 
-        # STFT -> (N, Cimg, F, W)
         Xtr_img = stft2d(
             Xtr_raw,
             n_fft=args.stft_n_fft,
@@ -432,7 +481,6 @@ def main():
             delta=args.stft_delta,
         )
 
-        # Optional class weights
         cw = None
         if args.class_weight:
             counts = np.bincount(ytr, minlength=n_users).astype(np.float32)
@@ -458,6 +506,8 @@ def main():
         per_task_acc[t] = acc
         all_te_true.append(yte)
         all_te_pred.append(yp)
+        per_task_true[t] = yte.copy()
+        per_task_pred[t] = yp.copy()
         print(f"[task {t}] test_acc {acc:.3f}")
 
     if all_te_true:
@@ -481,6 +531,39 @@ def main():
     os.makedirs(os.path.dirname(args.out_csv) or ".", exist_ok=True)
     df.to_csv(args.out_csv, index=False)
     print(f"[saved] {args.out_csv}")
+
+    labels = [f"u{i+1}" for i in range(n_users)]
+    model_name = "stft2d_speccnn"
+
+    for t in tasks:
+        if t not in per_task_true:
+            continue
+
+        cm = confusion_matrix_np(per_task_true[t], per_task_pred[t], n_users)
+        cm_pct = row_normalise_percent(cm)
+
+        print_confusion_matrix_percent(
+            cm_pct,
+            title=f"[task {t}] User Confusion Matrix (%)",
+            labels=labels,
+        )
+
+        save_confusion_matrix_plot(
+            cm_pct,
+            task_id=t,
+            model_name=model_name,
+            labels=labels,
+            save_dir="runs/confusion_matrices",
+        )
+
+        save_confusion_matrix_csv(
+            cm,
+            cm_pct,
+            task_id=t,
+            model_name=model_name,
+            labels=labels,
+            save_dir="runs/confusion_matrices",
+        )
 
 
 if __name__ == "__main__":

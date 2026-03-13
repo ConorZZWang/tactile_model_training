@@ -9,7 +9,9 @@
 #     --cnn_base 192 --epochs 40 --batch_size 192 `
 #     --fs 250 --cwt_w 6.0 --cwt_scales 64 --cwt_smin 1 --cwt_smax 128 `
 #     --out_csv runs/cwt1d.csv
-
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import os
 import argparse
 from collections import Counter
@@ -32,6 +34,84 @@ torch.backends.cudnn.benchmark = True
 # -------------------------
 # Helpers
 # -------------------------
+
+def confusion_matrix_np(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int) -> np.ndarray:
+    cm = np.zeros((n_classes, n_classes), dtype=np.int32)
+    for t, p in zip(y_true, y_pred):
+        cm[t, p] += 1
+    return cm
+
+
+def row_normalise_percent(cm: np.ndarray) -> np.ndarray:
+    cm = cm.astype(np.float32)
+    row_sums = cm.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1.0
+    return 100.0 * cm / row_sums
+
+
+def print_confusion_matrix_percent(cm_pct: np.ndarray, title: str, labels=None):
+    print(f"\n{title}")
+    n = cm_pct.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    header = "true\\pred".ljust(10) + " " + " ".join([f"{lab:>8}" for lab in labels])
+    print(header)
+    for i in range(n):
+        row_str = " ".join([f"{cm_pct[i, j]:8.1f}" for j in range(n)])
+        print(f"{labels[i]:>10} {row_str}")
+
+
+def save_confusion_matrix_plot(cm_pct: np.ndarray, task_id: int, model_name: str,
+                               labels=None, save_dir="runs/confusion_matrices"):
+    os.makedirs(save_dir, exist_ok=True)
+    n = cm_pct.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(cm_pct, cmap="Blues", vmin=0, vmax=100)
+
+    ax.set_title(f"{model_name} - Task {task_id} Confusion Matrix (%)")
+    ax.set_xlabel("Predicted User")
+    ax.set_ylabel("True User")
+    ax.set_xticks(np.arange(n))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels(labels)
+
+    for i in range(n):
+        for j in range(n):
+            ax.text(j, i, f"{cm_pct[i, j]:.1f}", ha="center", va="center", fontsize=8)
+
+    fig.colorbar(im, ax=ax, label="Percentage")
+    fig.tight_layout()
+
+    out_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm.png")
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[saved] {out_path}")
+
+
+def save_confusion_matrix_csv(cm: np.ndarray, cm_pct: np.ndarray, task_id: int, model_name: str,
+                              labels=None, save_dir="runs/confusion_matrices"):
+    os.makedirs(save_dir, exist_ok=True)
+    n = cm.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    df_counts = pd.DataFrame(cm, index=labels, columns=labels)
+    df_pct = pd.DataFrame(cm_pct, index=labels, columns=labels)
+
+    counts_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm_counts.csv")
+    pct_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm_percent.csv")
+
+    df_counts.to_csv(counts_path)
+    df_pct.to_csv(pct_path)
+
+    print(f"[saved] {counts_path}")
+    print(f"[saved] {pct_path}")
+
 def zwin(x: np.ndarray) -> np.ndarray:
     mu = x.mean(axis=2, keepdims=True)
     sd = x.std(axis=2, keepdims=True) + 1e-8
@@ -395,9 +475,12 @@ def main():
     print("\n=== MODEL: cnn(cwt-channelized) ===")
     per_task_acc = {}
     all_te_true, all_te_pred = [], []
+    per_task_true, per_task_pred = {}, {}
 
     for t in tasks:
-        tr, va, te = split_per_task_within_user(y_user, y_task, task_id=t, seed=args.seed)
+        tr, va, te = split_per_task_within_user(
+            y_user, y_task, task_id=t, seed=args.seed
+        )
         if len(tr) == 0 or len(va) == 0 or len(te) == 0:
             print(f"[task {t}] not enough data")
             continue
@@ -411,13 +494,28 @@ def main():
             Xte_raw = zwin(Xte_raw)
 
         Xtr_c = cwt_channelize(
-            Xtr_raw, fs=args.fs, scales=args.cwt_scales, smin=args.cwt_smin, smax=args.cwt_smax, w=args.cwt_w
+            Xtr_raw,
+            fs=args.fs,
+            scales=args.cwt_scales,
+            smin=args.cwt_smin,
+            smax=args.cwt_smax,
+            w=args.cwt_w,
         )
         Xva_c = cwt_channelize(
-            Xva_raw, fs=args.fs, scales=args.cwt_scales, smin=args.cwt_smin, smax=args.cwt_smax, w=args.cwt_w
+            Xva_raw,
+            fs=args.fs,
+            scales=args.cwt_scales,
+            smin=args.cwt_smin,
+            smax=args.cwt_smax,
+            w=args.cwt_w,
         )
         Xte_c = cwt_channelize(
-            Xte_raw, fs=args.fs, scales=args.cwt_scales, smin=args.cwt_smin, smax=args.cwt_smax, w=args.cwt_w
+            Xte_raw,
+            fs=args.fs,
+            scales=args.cwt_scales,
+            smin=args.cwt_smin,
+            smax=args.cwt_smax,
+            w=args.cwt_w,
         )
 
         cw = None
@@ -445,6 +543,9 @@ def main():
         per_task_acc[t] = acc
         all_te_true.append(yte)
         all_te_pred.append(yp)
+        per_task_true[t] = yte.copy()
+        per_task_pred[t] = yp.copy()
+
         print(f"[task {t}] test_acc {acc:.3f}")
 
     if all_te_true:
@@ -467,6 +568,40 @@ def main():
     os.makedirs(os.path.dirname(args.out_csv) or ".", exist_ok=True)
     df.to_csv(args.out_csv, index=False)
     print(f"[saved] {args.out_csv}")
+
+    # confusion matrices
+    labels = [f"u{i+1}" for i in range(n_users)]
+    model_name = "cnn_cwt1d"
+
+    for t in tasks:
+        if t not in per_task_true:
+            continue
+
+        cm = confusion_matrix_np(per_task_true[t], per_task_pred[t], n_users)
+        cm_pct = row_normalise_percent(cm)
+
+        print_confusion_matrix_percent(
+            cm_pct,
+            title=f"[task {t}] User Confusion Matrix (%)",
+            labels=labels,
+        )
+
+        save_confusion_matrix_plot(
+            cm_pct,
+            task_id=t,
+            model_name=model_name,
+            labels=labels,
+            save_dir="runs/confusion_matrices",
+        )
+
+        save_confusion_matrix_csv(
+            cm,
+            cm_pct,
+            task_id=t,
+            model_name=model_name,
+            labels=labels,
+            save_dir="runs/confusion_matrices",
+        )
 
 
 if __name__ == "__main__":

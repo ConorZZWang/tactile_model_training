@@ -9,10 +9,13 @@
 #     --fs 250 --n_fft 128 --hop 8 --mel_bins 48 --mel_fmax 100 `
 #     --out_csv runs/mel1d.csv
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import os
 import argparse
 from collections import Counter
-from typing import Tuple, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -24,6 +27,84 @@ import torch.optim as optim
 from TAC.load_all import iter_force_files, DATA_ROOT
 
 torch.backends.cudnn.benchmark = True
+
+
+def confusion_matrix_np(y_true: np.ndarray, y_pred: np.ndarray, n_classes: int) -> np.ndarray:
+    cm = np.zeros((n_classes, n_classes), dtype=np.int32)
+    for t, p in zip(y_true, y_pred):
+        cm[t, p] += 1
+    return cm
+
+
+def row_normalise_percent(cm: np.ndarray) -> np.ndarray:
+    cm = cm.astype(np.float32)
+    row_sums = cm.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1.0
+    return 100.0 * cm / row_sums
+
+
+def print_confusion_matrix_percent(cm_pct: np.ndarray, title: str, labels=None):
+    print(f"\n{title}")
+    n = cm_pct.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    header = "true\\pred".ljust(10) + " " + " ".join([f"{lab:>8}" for lab in labels])
+    print(header)
+    for i in range(n):
+        row_str = " ".join([f"{cm_pct[i, j]:8.1f}" for j in range(n)])
+        print(f"{labels[i]:>10} {row_str}")
+
+
+def save_confusion_matrix_plot(cm_pct: np.ndarray, task_id: int, model_name: str,
+                               labels=None, save_dir="runs/confusion_matrices"):
+    os.makedirs(save_dir, exist_ok=True)
+    n = cm_pct.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    fig, ax = plt.subplots(figsize=(7, 6))
+    im = ax.imshow(cm_pct, cmap="Blues", vmin=0, vmax=100)
+
+    ax.set_title(f"{model_name} - Task {task_id} Confusion Matrix (%)")
+    ax.set_xlabel("Predicted User")
+    ax.set_ylabel("True User")
+    ax.set_xticks(np.arange(n))
+    ax.set_yticks(np.arange(n))
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels(labels)
+
+    for i in range(n):
+        for j in range(n):
+            ax.text(j, i, f"{cm_pct[i, j]:.1f}", ha="center", va="center", fontsize=8)
+
+    fig.colorbar(im, ax=ax, label="Percentage")
+    fig.tight_layout()
+
+    out_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm.png")
+    plt.savefig(out_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[saved] {out_path}")
+
+
+def save_confusion_matrix_csv(cm: np.ndarray, cm_pct: np.ndarray, task_id: int, model_name: str,
+                              labels=None, save_dir="runs/confusion_matrices"):
+    os.makedirs(save_dir, exist_ok=True)
+    n = cm.shape[0]
+    if labels is None:
+        labels = [f"u{i+1}" for i in range(n)]
+
+    df_counts = pd.DataFrame(cm, index=labels, columns=labels)
+    df_pct = pd.DataFrame(cm_pct, index=labels, columns=labels)
+
+    counts_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm_counts.csv")
+    pct_path = os.path.join(save_dir, f"{model_name}_task_{task_id}_cm_percent.csv")
+
+    df_counts.to_csv(counts_path)
+    df_pct.to_csv(pct_path)
+
+    print(f"[saved] {counts_path}")
+    print(f"[saved] {pct_path}")
 
 
 def zwin(x: np.ndarray) -> np.ndarray:
@@ -108,7 +189,9 @@ def split_per_task_within_user(y_user, y_task, task_id, seed=42, ratios=(0.6, 0.
         nva = int(ratios[1] * n)
         tr, va, te = iu[:ntr], iu[ntr:ntr + nva], iu[ntr + nva:]
         if len(tr) and len(va) and len(te):
-            tr_all.append(tr); va_all.append(va); te_all.append(te)
+            tr_all.append(tr)
+            va_all.append(va)
+            te_all.append(te)
 
     if not tr_all:
         return np.array([], dtype=int), np.array([], dtype=int), np.array([], dtype=int)
@@ -125,8 +208,7 @@ def mel_to_hz(mel: torch.Tensor) -> torch.Tensor:
 
 
 def mel_filterbank(fs: float, n_fft: int, n_mels: int, fmin: float, fmax: float, device) -> torch.Tensor:
-    # rfft freq bins
-    freqs = torch.fft.rfftfreq(n=n_fft, d=1.0 / fs).to(device)  # (F,)
+    freqs = torch.fft.rfftfreq(n=n_fft, d=1.0 / fs).to(device)
     F = freqs.numel()
 
     mel_min = hz_to_mel(torch.tensor([fmin], device=device))
@@ -170,11 +252,11 @@ def mel_channelize(
         xc, n_fft=n_fft, hop_length=hop, win_length=n_fft,
         window=window, center=True, return_complex=True
     )
-    power = (spec.real ** 2 + spec.imag ** 2)  # (N*C, F, W)
+    power = (spec.real ** 2 + spec.imag ** 2)
     power = torch.log(power + log_eps)
 
-    fb = mel_filterbank(fs, n_fft, mel_bins, fmin, fmax, device=device)  # (M,F)
-    mel = torch.matmul(fb[None, :, :], power)  # (N*C, M, W)
+    fb = mel_filterbank(fs, n_fft, mel_bins, fmin, fmax, device=device)
+    mel = torch.matmul(fb[None, :, :], power)
 
     if per_bin_norm:
         m = mel.mean(dim=2, keepdim=True)
@@ -226,7 +308,8 @@ class CNN1D(nn.Module):
 
 
 def train_one_model(Xtr, ytr, Xva, yva, n_classes, seed, max_epochs, bs, lr, wd, patience, cnn_base, class_weight=None):
-    torch.manual_seed(seed); np.random.seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = CNN1D(in_channels=Xtr.shape[1], n_classes=n_classes, base=cnn_base).to(device)
@@ -249,7 +332,8 @@ def train_one_model(Xtr, ytr, Xva, yva, n_classes, seed, max_epochs, bs, lr, wd,
     for _ep in range(1, max_epochs + 1):
         model.train()
         for xb, yb in dl_tr:
-            xb = xb.to(device); yb = yb.to(device)
+            xb = xb.to(device)
+            yb = yb.to(device)
             opt.zero_grad(set_to_none=True)
             loss = crit(model(xb), yb)
             loss.backward()
@@ -260,9 +344,11 @@ def train_one_model(Xtr, ytr, Xva, yva, n_classes, seed, max_epochs, bs, lr, wd,
             correct = 0
             n = 0
             for xb, yb in dl_va:
-                xb = xb.to(device); yb = yb.to(device)
+                xb = xb.to(device)
+                yb = yb.to(device)
                 pr = model(xb).argmax(1)
-                correct += int((pr == yb).sum().item()); n += len(xb)
+                correct += int((pr == yb).sum().item())
+                n += len(xb)
             va_acc = correct / max(1, n)
 
         if va_acc > best_va:
@@ -336,6 +422,7 @@ def main():
     print("\n=== MODEL: cnn(mel-channelized) ===")
     per_task_acc = {}
     all_te_true, all_te_pred = [], []
+    per_task_true, per_task_pred = {}, {}
 
     for t in tasks:
         tr, va, te = split_per_task_within_user(y_user, y_task, task_id=t, seed=args.seed)
@@ -347,14 +434,22 @@ def main():
         ytr, yva, yte = y_user[tr], y_user[va], y_user[te]
 
         if args.window_norm:
-            Xtr_raw = zwin(Xtr_raw); Xva_raw = zwin(Xva_raw); Xte_raw = zwin(Xte_raw)
+            Xtr_raw = zwin(Xtr_raw)
+            Xva_raw = zwin(Xva_raw)
+            Xte_raw = zwin(Xte_raw)
 
-        Xtr_m = mel_channelize(Xtr_raw, fs=args.fs, n_fft=args.n_fft, hop=args.hop,
-                               mel_bins=args.mel_bins, fmin=args.mel_fmin, fmax=args.mel_fmax)
-        Xva_m = mel_channelize(Xva_raw, fs=args.fs, n_fft=args.n_fft, hop=args.hop,
-                               mel_bins=args.mel_bins, fmin=args.mel_fmin, fmax=args.mel_fmax)
-        Xte_m = mel_channelize(Xte_raw, fs=args.fs, n_fft=args.n_fft, hop=args.hop,
-                               mel_bins=args.mel_bins, fmin=args.mel_fmin, fmax=args.mel_fmax)
+        Xtr_m = mel_channelize(
+            Xtr_raw, fs=args.fs, n_fft=args.n_fft, hop=args.hop,
+            mel_bins=args.mel_bins, fmin=args.mel_fmin, fmax=args.mel_fmax
+        )
+        Xva_m = mel_channelize(
+            Xva_raw, fs=args.fs, n_fft=args.n_fft, hop=args.hop,
+            mel_bins=args.mel_bins, fmin=args.mel_fmin, fmax=args.mel_fmax
+        )
+        Xte_m = mel_channelize(
+            Xte_raw, fs=args.fs, n_fft=args.n_fft, hop=args.hop,
+            mel_bins=args.mel_bins, fmin=args.mel_fmin, fmax=args.mel_fmax
+        )
 
         cw = None
         if args.class_weight:
@@ -363,13 +458,18 @@ def main():
             inv = 1.0 / counts
             cw = inv * (len(inv) / inv.sum())
 
-        model = train_one_model(Xtr_m, ytr, Xva_m, yva, n_users, args.seed, args.epochs,
-                                args.batch_size, args.lr, args.wd, args.patience, args.cnn_base, cw)
+        model = train_one_model(
+            Xtr_m, ytr, Xva_m, yva, n_users, args.seed, args.epochs,
+            args.batch_size, args.lr, args.wd, args.patience, args.cnn_base, cw
+        )
 
         yp = predict_model(model, Xte_m, bs=args.batch_size)
         acc = float((yp == yte).mean())
         per_task_acc[t] = acc
-        all_te_true.append(yte); all_te_pred.append(yp)
+        all_te_true.append(yte)
+        all_te_pred.append(yp)
+        per_task_true[t] = yte.copy()
+        per_task_pred[t] = yp.copy()
         print(f"[task {t}] test_acc {acc:.3f}")
 
     if all_te_true:
@@ -385,12 +485,46 @@ def main():
     for t in tasks:
         row[f"task{t}_acc"] = per_task_acc.get(t, np.nan)
     df = pd.DataFrame([row])
+
     print("\n=== SUMMARY ===")
     print(df.to_string(index=False))
 
     os.makedirs(os.path.dirname(args.out_csv) or ".", exist_ok=True)
     df.to_csv(args.out_csv, index=False)
     print(f"[saved] {args.out_csv}")
+
+    labels = [f"u{i+1}" for i in range(n_users)]
+    model_name = "cnn_mel1d"
+
+    for t in tasks:
+        if t not in per_task_true:
+            continue
+
+        cm = confusion_matrix_np(per_task_true[t], per_task_pred[t], n_users)
+        cm_pct = row_normalise_percent(cm)
+
+        print_confusion_matrix_percent(
+            cm_pct,
+            title=f"[task {t}] User Confusion Matrix (%)",
+            labels=labels,
+        )
+
+        save_confusion_matrix_plot(
+            cm_pct,
+            task_id=t,
+            model_name=model_name,
+            labels=labels,
+            save_dir="runs/confusion_matrices",
+        )
+
+        save_confusion_matrix_csv(
+            cm,
+            cm_pct,
+            task_id=t,
+            model_name=model_name,
+            labels=labels,
+            save_dir="runs/confusion_matrices",
+        )
 
 
 if __name__ == "__main__":
