@@ -1,4 +1,3 @@
-# TAC/features.py
 import numpy as np
 
 def _percentiles(x, ps=(10,25,50,75,90)):

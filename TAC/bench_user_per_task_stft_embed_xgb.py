@@ -1,4 +1,3 @@
-# TAC/bench_user_per_task_stft_embed_xgb.py
 # Per-task USER authentication using:
 #   STFT map -> CNN1D -> embedding -> XGBoost
 #

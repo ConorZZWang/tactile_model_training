@@ -1,4 +1,3 @@
-# TAC/bench_user_per_task_rawnn_stft1d.py
 # Per-task USER authentication using a 1D-CNN on "image-like" STFT maps,
 # channelized into (C, T) so we can reuse a 1D CNN pipeline.
 #

@@ -1,4 +1,3 @@
-# TAC/bench_user_per_task_rawnn_rp1d.py
 # Per-task USER authentication using a 1D-CNN on Recurrence Plots (RP),
 # channelized into (C, T) so we can reuse a 1D CNN pipeline.
 #

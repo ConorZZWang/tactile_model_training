@@ -1,4 +1,3 @@
-# TAC/bench_user_per_task_rawnn_stft2d.py
 # Per-task USER authentication using a 2D CNN on STFT spectrogram "images".
 #
 # Pipeline:

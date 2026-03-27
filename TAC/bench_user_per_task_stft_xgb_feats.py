@@ -1,4 +1,3 @@
-# TAC/bench_user_per_task_stft_xgb_feats.py
 # Per-task USER authentication using STFT "graph features" + XGBoost.
 #
 # Idea:

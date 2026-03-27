@@ -1,4 +1,3 @@
-# TAC/bench_user_per_task_rawnn.py
 # Deep nets (CNN / Transformer) for per-task USER authentication on RAW windows.
 # - Windows are built directly from CSVs (force_x, force_y, force_z).
 # - We split WITHIN-USER for each task (so each per-task model sees all users).

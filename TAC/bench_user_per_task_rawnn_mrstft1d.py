@@ -1,4 +1,3 @@
-# TAC/bench_user_per_task_rawnn_mrstft1d.py
 # Per-task USER authentication using multi-resolution STFT (stack 2 STFT configs),
 # channelized into (C, T) for a 1D CNN.
 #
